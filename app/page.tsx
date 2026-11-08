@@ -27,14 +27,18 @@ export default function Home() {
       
       <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {equipments.map((item) => {
-          // 嚴格模式：空值一律視為 0，杜絕幽靈數字
           const currentQuantity = item.quantity ?? 0;
           
-          // 雙重防護：狀態要是可借用，而且「數量必須大於 0」才能借
           const isAvailable = 
             (item.status === '可借用' || item.status === 'available' || item.status === 'Available') 
             && currentQuantity > 0;
           
+          // 狀態文字中文化轉換
+          const displayStatus = 
+            item.status === 'available' || item.status === 'Available' ? '可借用' : 
+            item.status === 'unavailable' ? '目前無法借用' : 
+            item.status;
+
           return (
             <div key={item.id} className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col transition-transform hover:scale-105">
               <div className="h-48 bg-gray-200 relative">
@@ -48,19 +52,16 @@ export default function Home() {
               <div className="p-5 flex-grow flex flex-col">
                 <h3 className="text-xl font-bold text-gray-800 mb-2">{item.name}</h3>
                 <div className="flex justify-between items-center mb-4 text-sm text-gray-600">
-                  {/* 顯示真實的庫存數量 */}
                   <span>庫存：{currentQuantity}</span>
                   <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                     isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                   }`}>
-                    {item.status}
+                    {displayStatus}
                   </span>
                 </div>
                 
                 {mounted && (() => {
-                  // 檢查這個設備在購物車裡的狀態
                   const cartItem = items.find((i) => i.id === item.id);
-                  // 判斷是否已經選滿了所有庫存
                   const isMaxReached = cartItem && cartItem.borrowQuantity >= currentQuantity;
 
                   return (
@@ -70,7 +71,7 @@ export default function Home() {
                           id: item.id, 
                           name: item.name, 
                           image_url: item.image_url, 
-                          maxQuantity: currentQuantity // 帶入當前庫存作為上限
+                          maxQuantity: currentQuantity 
                         });
                       }}
                       disabled={isMaxReached || !isAvailable}
