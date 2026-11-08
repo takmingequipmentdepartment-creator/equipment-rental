@@ -74,6 +74,12 @@ export default function Navbar() {
               審核後台
             </Link>
           )}
+          {/* 加入這一行：設備管理 */}
+          {isLogin && (
+            <Link href="/manage" onClick={() => setIsMenuOpen(false)} className="text-gray-600 hover:text-black py-2 md:py-0">
+              設備管理
+            </Link>
+          )}
 
           {mounted && (
             <Link href="/cart" onClick={() => setIsMenuOpen(false)} className="relative inline-flex items-center justify-center bg-blue-100 text-blue-800 px-4 py-2 rounded-full hover:bg-blue-200 transition w-max">
