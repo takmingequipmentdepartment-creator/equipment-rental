@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 interface RentalRequest {
   id: string;
   equipment_name: string;
-  department: string; // 申請單位
+  department: string;
   student_name: string;
   phone: string;
   email: string;
@@ -80,9 +80,9 @@ export default function DashboardPage() {
       }
     }
 
-    // 3. 呼叫發信 API
+    // 3. 呼叫發信 API (已升級加入錯誤偵測雷達)
     try {
-      await fetch('/api/send-email', {
+      const emailRes = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,11 +92,24 @@ export default function DashboardPage() {
           status: newStatus,
         }),
       });
+
+      const emailResult = await emailRes.json();
+
+      if (!emailRes.ok) {
+        // API 回傳失敗 (例如沒驗證網域又寄給別人)
+        console.error("寄信失敗詳細原因:", emailResult);
+        alert(`⚠️ 狀態已更新，但寄信失敗！\n錯誤原因：${emailResult.error}\n\n(提示：測試階段只能寄信給註冊 Resend 的那個信箱)`);
+      } else {
+        // 成功寄出
+        alert(`✅ 已成功將狀態更改為「${newStatus}」並發送通知信！`);
+      }
+
     } catch (err) {
-      console.log('寄信通知發生錯誤，但狀態已更新', err);
+      // 網路斷線或伺服器根本沒回應
+      console.error('寄信通知發生網路錯誤:', err);
+      alert(`⚠️ 狀態已更新，但呼叫寄信系統發生網路錯誤。`);
     }
 
-    alert(`✅ 已成功將狀態更改為「${newStatus}」並發送通知信！`);
     fetchRequests();
   };
 
