@@ -12,7 +12,7 @@ export default function CartPage() {
   const router = useRouter();
 
   // 申請人表單狀態
-  const [department, setDepartment] = useState(''); // 自行輸入的申請單位
+  const [department, setDepartment] = useState('');
   const [studentName, setStudentName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -36,7 +36,7 @@ export default function CartPage() {
     // 將購物車內的設備加上數量標籤 (例如: "相機 x2, 腳架 x1")
     const equipmentNames = items.map((item) => `${item.name} x${item.borrowQuantity}`).join(', ');
 
-    // 1. 寫入申請單資料表（包含 department 欄位）
+    // 1. 寫入申請單資料表
     const { error } = await supabase.from('rental_requests').insert([
       {
         equipment_name: equipmentNames,
@@ -54,7 +54,7 @@ export default function CartPage() {
       return;
     }
 
-    // 2. 預扣庫存邏輯 (扣除該學生借用的精確數量)
+    // 2. 預扣庫存邏輯
     for (const item of items) {
       const { data: eqData } = await supabase
         .from('equipments')
@@ -73,6 +73,20 @@ export default function CartPage() {
           .eq('id', item.id);
       }
     }
+
+    // 3. 👉 呼叫通知 API，發送信件給管理員
+    // 使用 .catch() 讓他在背景執行，就算網路有點慢也不會卡住學生的送出畫面
+    fetch('/api/notify-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentName: studentName,
+        department: department,
+        equipmentName: equipmentNames,
+        email: email,
+        phone: phone
+      })
+    }).catch(err => console.error("管理員通知信發送失敗:", err));
 
     setIsSubmitting(false);
     alert('✅ 借用申請已成功送出！設備已為您保留，請等候審核。');
