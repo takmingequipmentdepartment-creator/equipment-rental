@@ -13,11 +13,19 @@ interface RentalRequest {
   email: string;
   status: string;
   created_at: string;
+  // 👉 新增介面定義：對應 Supabase 資料庫的新欄位
+  activity_name: string | null;
+  borrow_date: string | null;
+  return_date: string | null;
+  reviewed_by: string | null;
 }
 
 export default function DashboardPage() {
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // 👉 新增狀態：讓管理員輸入自己的名字
+  const [reviewerName, setReviewerName] = useState('');
   const router = useRouter();
 
   const fetchRequests = async () => {
@@ -38,16 +46,36 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    // 👉 元件載入時，先去 localStorage 抓看看之前有沒有輸入過名字，避免每次重整都要重打
+    const savedName = localStorage.getItem('reviewerName');
+    if (savedName) setReviewerName(savedName);
+    
     fetchRequests();
   }, []);
 
-  const handleUpdateStatus = async (request: RentalRequest, newStatus: string) => {
-    if (!confirm(`確定要將此申請單標記為「${newStatus}」嗎？`)) return;
+  // 👉 新增處理名字改變的函式
+  const handleReviewerNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    setReviewerName(name);
+    localStorage.setItem('reviewerName', name); // 記住名字
+  };
 
-    // 1. 更新申請單狀態
+  const handleUpdateStatus = async (request: RentalRequest, newStatus: string) => {
+    // 👉 阻擋機制：如果沒有填寫審核人名稱，就不允許進行狀態變更
+    if (!reviewerName.trim()) {
+      alert('⚠️ 請先在畫面上方填寫「當前審核人員名稱」才能進行操作！');
+      return;
+    }
+
+    if (!confirm(`確定要將此申請單標記為「${newStatus}」嗎？\n(審核人將記錄為：${reviewerName})`)) return;
+
+    // 1. 更新申請單狀態 (👉 並且把 reviewed_by 一起寫進去)
     const { error } = await supabase
       .from('rental_requests')
-      .update({ status: newStatus })
+      .update({ 
+        status: newStatus,
+        reviewed_by: reviewerName // 👉 新增這行
+      })
       .eq('id', request.id);
 
     if (error) {
@@ -55,7 +83,7 @@ export default function DashboardPage() {
       return;
     }
 
-    // 2. 庫存回補邏輯 (針對駁回或已歸還)
+    // 2. 庫存回補邏輯 (針對駁回或已歸還) - 維持原本你寫的很棒的邏輯
     if (newStatus === '駁回' || newStatus === '已歸還') {
       const equipmentArray = request.equipment_name.split(', ').map(name => name.trim());
 
@@ -80,7 +108,7 @@ export default function DashboardPage() {
       }
     }
 
-    // 3. 呼叫發信 API (已升級加入錯誤偵測雷達)
+    // 3. 呼叫發信 API
     try {
       const emailRes = await fetch('/api/send-email', {
         method: 'POST',
@@ -90,22 +118,23 @@ export default function DashboardPage() {
           studentName: request.student_name,
           equipmentName: request.equipment_name,
           status: newStatus,
+          // 👉 把這些新資料也傳給發信 API，讓通知信裡面可以寫出是誰審核的、歸還日期是什麼時候
+          reviewedBy: reviewerName,
+          returnDate: request.return_date,
+          activityName: request.activity_name
         }),
       });
 
       const emailResult = await emailRes.json();
 
       if (!emailRes.ok) {
-        // API 回傳失敗 (例如沒驗證網域又寄給別人)
         console.error("寄信失敗詳細原因:", emailResult);
         alert(`⚠️ 狀態已更新，但寄信失敗！\n錯誤原因：${emailResult.error}\n\n(提示：測試階段只能寄信給註冊 Resend 的那個信箱)`);
       } else {
-        // 成功寄出
         alert(`✅ 已成功將狀態更改為「${newStatus}」並發送通知信！`);
       }
 
     } catch (err) {
-      // 網路斷線或伺服器根本沒回應
       console.error('寄信通知發生網路錯誤:', err);
       alert(`⚠️ 狀態已更新，但呼叫寄信系統發生網路錯誤。`);
     }
@@ -117,14 +146,33 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8">🛠️ 審核後台管理</h1>
+      <div className="max-w-[1400px] mx-auto">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">🛠️ 審核後台管理</h1>
+        
+        {/* 👉 新增：審核人員身分設定區塊 */}
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-md flex items-center gap-4">
+          <label className="text-sm font-bold text-yellow-800 whitespace-nowrap">
+            👨‍💻 當前審核人員：
+          </label>
+          <input
+            type="text"
+            value={reviewerName}
+            onChange={handleReviewerNameChange}
+            placeholder="請輸入您的名字 (例如: 設備部-李友仁)"
+            className="w-full max-w-sm border border-yellow-300 rounded p-2 focus:ring-yellow-500 bg-white"
+          />
+          <span className="text-xs text-yellow-600">
+            * 必須填寫才能進行核准或駁回操作
+          </span>
+        </div>
         
         <div className="bg-white rounded-xl shadow-md overflow-hidden overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-800 text-white">
                 <th className="p-4 whitespace-nowrap">申請時間</th>
+                {/* 👉 新增表頭 */}
+                <th className="p-4 whitespace-nowrap">活動 / 借還日</th> 
                 <th className="p-4 whitespace-nowrap">申請單位</th>
                 <th className="p-4 whitespace-nowrap">申請人</th>
                 <th className="p-4 whitespace-nowrap">借用設備清單</th>
@@ -137,29 +185,51 @@ export default function DashboardPage() {
               {requests.map((req) => (
                 <tr key={req.id} className="border-b hover:bg-gray-50">
                   <td className="p-4 text-sm text-gray-600">
-                    {new Date(req.created_at).toLocaleString()}
+                    {new Date(req.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                   </td>
+                  
+                  {/* 👉 新增資料行：顯示活動名稱與日期 */}
+                  <td className="p-4">
+                    <div className="font-bold text-gray-800 mb-1">
+                      {req.activity_name || '未填寫'}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      借: {req.borrow_date || '未設定'}<br/>
+                      <span className="text-red-500">還: {req.return_date || '未設定'}</span>
+                    </div>
+                  </td>
+
                   <td className="p-4">
                     <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-bold border">
                       {req.department || '未填寫'}
                     </span>
                   </td>
                   <td className="p-4 font-bold text-gray-800">{req.student_name}</td>
-                  <td className="p-4 text-blue-600 font-medium">{req.equipment_name}</td>
+                  <td className="p-4 text-blue-600 font-medium max-w-[200px] truncate" title={req.equipment_name}>
+                    {req.equipment_name}
+                  </td>
                   <td className="p-4 text-sm text-gray-600">
                     {req.phone}<br/>{req.email}
                   </td>
                   <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-                      req.status === '審核中' ? 'bg-yellow-100 text-yellow-700' :
-                      req.status === '已借出' ? 'bg-blue-100 text-blue-700' :
-                      req.status === '已歸還' ? 'bg-green-100 text-green-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {req.status}
-                    </span>
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                        req.status === '審核中' ? 'bg-yellow-100 text-yellow-700' :
+                        req.status === '已借出' ? 'bg-blue-100 text-blue-700' :
+                        req.status === '已歸還' ? 'bg-green-100 text-green-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {req.status}
+                      </span>
+                      {/* 👉 顯示是誰審核的 */}
+                      {req.reviewed_by && (
+                        <span className="text-xs text-gray-500 font-medium">
+                          由 {req.reviewed_by} 審核
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="p-4 flex gap-2">
+                  <td className="p-4 flex flex-col gap-2">
                     {req.status === '審核中' && (
                       <>
                         <button onClick={() => handleUpdateStatus(req, '已借出')} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm whitespace-nowrap">核准借出</button>
@@ -177,7 +247,7 @@ export default function DashboardPage() {
               ))}
               {requests.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-gray-500">目前沒有任何申請單。</td>
+                  <td colSpan={8} className="p-8 text-center text-gray-500">目前沒有任何申請單。</td>
                 </tr>
               )}
             </tbody>

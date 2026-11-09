@@ -16,6 +16,11 @@ export default function CartPage() {
   const [studentName, setStudentName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  
+  // 👉 新增：活動名稱與借用日期狀態
+  const [activityName, setActivityName] = useState('');
+  const [borrowDate, setBorrowDate] = useState('');
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -31,12 +36,24 @@ export default function CartPage() {
       alert('您的借用清單是空的！');
       return;
     }
+    
+    if (!borrowDate) {
+      alert('請選擇借用日期！');
+      return;
+    }
+
     setIsSubmitting(true);
+
+    // 👉 1. 計算歸還日期 (借用日期 + 14 天)
+    const bDate = new Date(borrowDate);
+    const rDate = new Date(bDate);
+    rDate.setDate(rDate.getDate() + 14);
+    const returnDateString = rDate.toISOString().split('T')[0]; // 轉換為 YYYY-MM-DD 格式
 
     // 將購物車內的設備加上數量標籤 (例如: "相機 x2, 腳架 x1")
     const equipmentNames = items.map((item) => `${item.name} x${item.borrowQuantity}`).join(', ');
 
-    // 1. 寫入申請單資料表
+    // 2. 寫入申請單資料表 (加入活動名稱、借用日與歸還日)
     const { error } = await supabase.from('rental_requests').insert([
       {
         equipment_name: equipmentNames,
@@ -44,6 +61,9 @@ export default function CartPage() {
         student_name: studentName,
         phone: phone,
         email: email,
+        activity_name: activityName,     // 👉 新增欄位
+        borrow_date: borrowDate,         // 👉 新增欄位
+        return_date: returnDateString,   // 👉 新增欄位 (自動計算)
         status: '審核中',
       },
     ]);
@@ -54,7 +74,7 @@ export default function CartPage() {
       return;
     }
 
-    // 2. 預扣庫存邏輯
+    // 3. 預扣庫存邏輯
     for (const item of items) {
       const { data: eqData } = await supabase
         .from('equipments')
@@ -74,8 +94,7 @@ export default function CartPage() {
       }
     }
 
-    // 3. 👉 呼叫通知 API，發送信件給管理員
-    // 使用 .catch() 讓他在背景執行，就算網路有點慢也不會卡住學生的送出畫面
+    // 4. 呼叫通知 API，發送信件給管理員 (一併附上新欄位供信件模板使用)
     fetch('/api/notify-admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -84,12 +103,15 @@ export default function CartPage() {
         department: department,
         equipmentName: equipmentNames,
         email: email,
-        phone: phone
+        phone: phone,
+        activityName: activityName,     // 傳給後端 API
+        borrowDate: borrowDate,         // 傳給後端 API
+        returnDate: returnDateString    // 傳給後端 API
       })
     }).catch(err => console.error("管理員通知信發送失敗:", err));
 
     setIsSubmitting(false);
-    alert('✅ 借用申請已成功送出！設備已為您保留，請等候審核。');
+    alert(`✅ 借用申請已成功送出！\n系統已為您自動設定應歸還日為：${returnDateString}`);
     clearCart();
     router.push('/');
   };
@@ -98,7 +120,7 @@ export default function CartPage() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-md overflow-hidden flex flex-col md:flex-row">
         
-        {/* 左側：借用清單 */}
+        {/* 左側：借用清單 (未更動) */}
         <div className="md:w-[55%] p-8 bg-gray-50 border-r">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">🛒 您的借用清單</h2>
           
@@ -159,6 +181,39 @@ export default function CartPage() {
         <div className="md:w-[45%] p-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">📝 填寫申請人資料</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* 👉 新增：活動名稱 */}
+            <div>
+              <label className="block text-gray-700 font-bold mb-2">活動名稱 (Activity Name)</label>
+              <input
+                type="text"
+                required
+                value={activityName}
+                onChange={(e) => setActivityName(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                placeholder="例如：資管系系卡展、迎新宿營"
+              />
+            </div>
+
+            {/* 👉 新增：借用日期 */}
+            <div>
+              <label className="block text-gray-700 font-bold mb-2">借用日期 (Borrow Date)</label>
+              <input
+                type="date"
+                required
+                value={borrowDate}
+                // min={new Date().toISOString().split('T')[0]} // 可選：防止選到過去的時間
+                onChange={(e) => setBorrowDate(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+              />
+              {borrowDate && (
+                <p className="mt-1 text-sm text-blue-600 font-medium">
+                  系統將自動設定歸還日為 14 天後
+                </p>
+              )}
+            </div>
+
+            {/* 原有欄位保留不變 */}
             <div>
               <label className="block text-gray-700 font-bold mb-2">申請單位 (Department / Club)</label>
               <input
@@ -203,6 +258,7 @@ export default function CartPage() {
                 placeholder="接收審核通知信"
               />
             </div>
+            
             <button
               type="submit"
               disabled={items.length === 0 || isSubmitting}
