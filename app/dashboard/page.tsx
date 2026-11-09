@@ -154,12 +154,13 @@ export default function DashboardPage() {
           <label className="text-sm font-bold text-yellow-800 whitespace-nowrap">
             👨‍💻 當前審核人員：
           </label>
+          {/* 👉 修改這裡：加深輸入框文字顏色與提示字體，加上內陰影與粗體 */}
           <input
             type="text"
             value={reviewerName}
             onChange={handleReviewerNameChange}
             placeholder="請輸入您的名字 (例如: 設備部-李友仁)"
-            className="w-full max-w-sm border border-yellow-300 rounded p-2 focus:ring-yellow-500 bg-white"
+            className="w-full max-w-sm border-2 border-yellow-300 rounded p-2 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500 bg-white text-gray-900 font-bold placeholder-gray-500 shadow-inner"
           />
           <span className="text-xs text-yellow-600">
             * 必須填寫才能進行核准或駁回操作
@@ -221,10 +222,10 @@ export default function DashboardPage() {
                       }`}>
                         {req.status}
                       </span>
-                      {/* 👉 顯示是誰審核的 */}
+                      {/* 👉 修改這裡：顯示是誰審核的 (加深顏色、加粗並加上徽章樣式) */}
                       {req.reviewed_by && (
-                        <span className="text-xs text-gray-500 font-medium">
-                          由 {req.reviewed_by} 審核
+                        <span className="text-xs text-slate-700 font-bold bg-slate-100 px-2 py-1 rounded-md mt-1 inline-block border border-slate-200 shadow-sm">
+                          📝 由 {req.reviewed_by} 審核
                         </span>
                       )}
                     </div>
