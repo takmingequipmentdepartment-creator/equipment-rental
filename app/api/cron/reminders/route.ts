@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/headers'; // 👉 1. 引入 Next.js 專用的 headers 工具
-import { supabase } from '../../../../utils/supabase'; // 請確認路徑是否正確
+import { headers } from 'next/headers'; 
+import { supabase } from '../../../../utils/supabase'; 
 import { Resend } from 'resend';
 
-// 強制為動態 API
-export const dynamic = 'force-dynamic';
+// ❌ 已經幫你把 export const dynamic = 'force-dynamic'; 刪掉了！
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(request: Request) {
   try {
-    // 👉 2. 改用 next/headers 來取得驗證資訊，這樣就不會觸發 Prerender 錯誤
+    // 改用 next/headers 來取得驗證資訊，並加上 await
     const headersList = await headers();
     const authHeader = headersList.get('authorization');
     
