@@ -1,22 +1,20 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/headers'; 
 import { supabase } from '../../../../utils/supabase'; 
 import { Resend } from 'resend';
-
-// ❌ 已經幫你把 export const dynamic = 'force-dynamic'; 刪掉了！
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(request: Request) {
-  try {
-    // 改用 next/headers 來取得驗證資訊，並加上 await
-    const headersList = await headers();
-    const authHeader = headersList.get('authorization');
-    
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return new Response('Unauthorized', { status: 401 });
-    }
+  // 👉 關鍵修正：將讀取 Headers 的動作移到 try...catch 區塊「外面」！
+  // 這樣 Next.js 在編譯階段的「中斷切換訊號」才不會被我們的 catch 攔截導致報錯
+  const authHeader = request.headers.get('authorization');
+  
+  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response('Unauthorized', { status: 401 });
+  }
 
+  // 👇 從這裡開始才是真正的商業邏輯與資料庫操作，放進 try...catch 保護
+  try {
     // 取得今天的日期 (轉換為 YYYY-MM-DD 格式，以台灣時間為準)
     const today = new Date();
     const twTime = new Date(today.getTime() + (8 * 60 * 60 * 1000));
