@@ -189,7 +189,7 @@ export default function DashboardPage() {
             type="text"
             value={reviewerName}
             onChange={handleReviewerNameChange}
-            placeholder="請輸入您的名字 (如: 設備部-李友仁)"
+            placeholder="請輸入您的名字 (如: 設備部-蛇丸)"
             className="w-full sm:max-w-sm border-2 border-yellow-300 rounded p-2 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500 bg-white text-gray-900 font-bold placeholder-gray-500 shadow-inner"
           />
           <span className="text-xs text-yellow-600 mt-1 sm:mt-0">
