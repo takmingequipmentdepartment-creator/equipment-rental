@@ -10,6 +10,7 @@ interface Equipment {
   image_url: string;
   quantity: number;
   status: string;
+  description: string | null;
 }
 
 export default function ManageEquipmentsPage() {
@@ -24,8 +25,9 @@ export default function ManageEquipmentsPage() {
   const [imageUrl, setImageUrl] = useState('');
   const [quantity, setQuantity] = useState<number>(1);
   const [status, setStatus] = useState('available');
+  const [description, setDescription] = useState(''); 
   
-  // 新增：圖片上傳狀態
+  // 圖片上傳狀態
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchEquipments = async () => {
@@ -49,18 +51,15 @@ export default function ManageEquipmentsPage() {
     fetchEquipments();
   }, []);
 
-  // 新增：處理圖片上傳的函式
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
 
-    // 產生一個隨機的檔名避免重複 (例如: 16987654321-image.png)
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
 
-    // 1. 上傳檔案到 Supabase 的 equipment-images 儲存桶
     const { error: uploadError } = await supabase.storage
       .from('equipment-images')
       .upload(fileName, file);
@@ -71,12 +70,10 @@ export default function ManageEquipmentsPage() {
       return;
     }
 
-    // 2. 取得公開網址
     const { data } = supabase.storage
       .from('equipment-images')
       .getPublicUrl(fileName);
 
-    // 3. 自動將網址填入表單
     setImageUrl(data.publicUrl);
     setIsUploading(false);
   };
@@ -88,11 +85,14 @@ export default function ManageEquipmentsPage() {
       return;
     }
 
+    const finalStatus = quantity === 0 ? 'unavailable' : status;
+
     const payload = {
       name,
       image_url: imageUrl,
       quantity,
-      status,
+      status: finalStatus,
+      description: description.trim(), 
     };
 
     if (isEditing && editId) {
@@ -115,7 +115,8 @@ export default function ManageEquipmentsPage() {
     setName(eq.name);
     setImageUrl(eq.image_url || '');
     setQuantity(eq.quantity || 0);
-    setStatus(eq.status);
+    setDescription(eq.description || ''); 
+    setStatus(eq.quantity === 0 ? 'unavailable' : eq.status);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -131,6 +132,13 @@ export default function ManageEquipmentsPage() {
     }
   };
 
+  // 👉 新增：清除圖片的同步函式
+  const handleClearImage = () => {
+    setImageUrl(''); 
+    const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = ''; 
+  };
+
   const resetForm = () => {
     setIsEditing(false);
     setEditId(null);
@@ -138,7 +146,7 @@ export default function ManageEquipmentsPage() {
     setImageUrl('');
     setQuantity(1);
     setStatus('available');
-    // 清除檔案選擇器的值
+    setDescription(''); 
     const fileInput = document.getElementById('image-upload') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
   };
@@ -155,12 +163,40 @@ export default function ManageEquipmentsPage() {
             {isEditing ? '✏️ 修改設備資料' : '➕ 新增設備'}
           </h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-gray-700 font-bold mb-2">設備名稱 *</label>
-              <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black" placeholder="例：Sony A7M4 相機" />
+            
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-700 font-bold mb-2">設備名稱 *</label>
+                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black" placeholder="例：Sony A7M4 相機" />
+              </div>
+              <div>
+                <label className="block text-gray-700 font-bold mb-2">庫存數量 *</label>
+                <input 
+                  type="number" 
+                  min="0" 
+                  required 
+                  value={quantity} 
+                  onChange={(e) => {
+                    const newQty = parseInt(e.target.value) || 0;
+                    setQuantity(newQty);
+                    if (newQty === 0) setStatus('unavailable');
+                  }} 
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black" 
+                />
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-gray-700 font-bold mb-2">設備詳細說明 (選填)</label>
+              <textarea 
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)} 
+                rows={3}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black resize-y" 
+                placeholder="例如：包含電池x2、記憶卡x1、充電線。借用前請確認鏡頭無刮傷..." 
+              />
             </div>
             
-            {/* 改良版的圖片上傳區塊 */}
             <div className="row-span-2">
               <label className="block text-gray-700 font-bold mb-2">設備圖片</label>
               <div className="flex flex-col gap-3">
@@ -182,27 +218,37 @@ export default function ManageEquipmentsPage() {
                   placeholder="或手動貼上圖片連結" 
                 />
                 
-                {/* 圖片預覽功能 */}
+                {/* 👉 修改：加入清除按鈕的圖片預覽區塊 */}
                 {imageUrl && (
-                  <div className="mt-2 border rounded-lg p-2 bg-gray-50 inline-block">
-                    <p className="text-xs text-gray-500 mb-1">圖片預覽：</p>
-                    <img src={imageUrl} alt="預覽" className="h-32 object-contain rounded" />
+                  <div className="mt-2 border rounded-lg p-3 bg-gray-50 inline-block relative">
+                    <p className="text-xs text-gray-500 mb-2">圖片預覽：</p>
+                    <img src={imageUrl} alt="預覽" className="h-32 object-contain rounded bg-white border" />
+                    <button
+                      type="button"
+                      onClick={handleClearImage}
+                      className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-2 py-1 rounded shadow"
+                    >
+                      移除圖片
+                    </button>
                   </div>
                 )}
               </div>
             </div>
 
             <div>
-              <label className="block text-gray-700 font-bold mb-2">庫存數量 *</label>
-              <input type="number" min="0" required value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value))} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black" />
-            </div>
-            <div>
               <label className="block text-gray-700 font-bold mb-2">設備狀態 *</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black">
-                <option value="available">可借用 (available)</option>
+              <select 
+                value={status} 
+                onChange={(e) => setStatus(e.target.value)} 
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black ${quantity === 0 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              >
+                <option value="available" disabled={quantity === 0}>
+                  可借用 (available) {quantity === 0 ? '🚫 (庫存為0)' : ''}
+                </option>
                 <option value="unavailable">目前無法借用 (unavailable)</option>
               </select>
             </div>
+            
             <div className="md:col-span-2 flex gap-4 mt-4">
               <button type="submit" disabled={isUploading} className={`flex-1 font-bold py-3 px-4 rounded-lg transition text-white ${isUploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
                 {isEditing ? '儲存修改' : '確認新增'}
@@ -217,11 +263,11 @@ export default function ManageEquipmentsPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow-md overflow-hidden overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-gray-800 text-white">
                 <th className="p-4 whitespace-nowrap">圖片</th>
-                <th className="p-4 whitespace-nowrap">設備名稱</th>
+                <th className="p-4 whitespace-nowrap w-1/4">設備名稱 & 說明</th>
                 <th className="p-4 whitespace-nowrap">庫存</th>
                 <th className="p-4 whitespace-nowrap">狀態</th>
                 <th className="p-4 whitespace-nowrap">操作</th>
@@ -237,13 +283,24 @@ export default function ManageEquipmentsPage() {
                       <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">無圖</div>
                     )}
                   </td>
-                  <td className="p-4 font-bold text-gray-800">{eq.name}</td>
-                  <td className="p-4 text-blue-600 font-bold text-lg">{eq.quantity ?? 0}</td>
                   <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      eq.status === 'available' || eq.status === '可借用' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    <div className="font-bold text-gray-800">{eq.name}</div>
+                    {eq.description && (
+                      <div className="text-xs text-gray-500 mt-1 line-clamp-2" title={eq.description}>
+                        {eq.description}
+                      </div>
+                    )}
+                  </td>
+                  <td className={`p-4 font-bold text-lg ${eq.quantity === 0 ? 'text-red-500' : 'text-blue-600'}`}>
+                    {eq.quantity ?? 0}
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                      (eq.status === 'available' || eq.status === '可借用') && eq.quantity !== 0 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-red-100 text-red-700'
                     }`}>
-                      {eq.status === 'available' ? '可借用' : eq.status === 'unavailable' ? '不可借用' : eq.status}
+                      {eq.quantity === 0 || eq.status === 'unavailable' ? '不可借用' : '可借用'}
                     </span>
                   </td>
                   <td className="p-4 flex gap-2">

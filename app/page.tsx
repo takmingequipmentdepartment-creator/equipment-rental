@@ -10,9 +10,13 @@ export default function Home() {
   const items = useCart((state) => state.items);
   const [mounted, setMounted] = useState(false);
 
+  // 👉 新增：控制彈出視窗所選擇的設備
+  const [selectedEq, setSelectedEq] = useState<any | null>(null);
+
   useEffect(() => {
     setMounted(true);
     const fetchEquipments = async () => {
+      // 記得要選取所有欄位，包含我們剛新增的 description
       const { data, error } = await supabase.from('equipments').select('*');
       if (data) {
         setEquipments(data);
@@ -40,12 +44,23 @@ export default function Home() {
             item.status;
 
           return (
-            <div key={item.id} className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col transition-transform hover:scale-105">
+            // 👉 在卡片外層加上 onClick 與 cursor-pointer 讓整張卡片可以被點擊
+            <div 
+              key={item.id} 
+              onClick={() => setSelectedEq(item)}
+              className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col transition-transform hover:scale-105 cursor-pointer border border-gray-100"
+            >
               <div className="h-48 bg-gray-200 relative">
                 {item.image_url ? (
                   <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="flex items-center justify-center h-full text-gray-400">無圖片</div>
+                )}
+                {/* 庫存為 0 時的浮水印提示 */}
+                {currentQuantity === 0 && (
+                  <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
+                    <span className="bg-red-500 text-white font-bold px-4 py-1 rounded shadow-lg transform -rotate-12">庫存為 0</span>
+                  </div>
                 )}
               </div>
               
@@ -66,7 +81,9 @@ export default function Home() {
 
                   return (
                     <button
-                      onClick={() => {
+                      // 👉 加上 e.stopPropagation() 避免點擊按鈕時觸發外層卡片的 onClick (打開 Modal)
+                      onClick={(e) => {
+                        e.stopPropagation();
                         addItem({ 
                           id: item.id, 
                           name: item.name, 
@@ -100,6 +117,100 @@ export default function Home() {
           );
         })}
       </div>
+
+      {/* 👉 新增：設備詳細說明 Modal 彈出視窗 */}
+      {selectedEq && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedEq(null)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            
+            <button 
+              onClick={() => setSelectedEq(null)}
+              className="absolute top-4 right-4 bg-black/50 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-black/70 z-10 font-bold"
+            >
+              ✕
+            </button>
+
+            {selectedEq.image_url && (
+              <img src={selectedEq.image_url} alt={selectedEq.name} className="w-full h-64 object-cover" />
+            )}
+            
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">{selectedEq.name}</h2>
+              <div className="flex items-center gap-3 mb-6">
+                <span className="text-blue-600 bg-blue-50 px-3 py-1 rounded font-bold text-sm">
+                  剩餘數量：{selectedEq.quantity}
+                </span>
+                <span className={`px-3 py-1 rounded font-bold text-sm ${
+                    (selectedEq.status === '可借用' || selectedEq.status === 'available' || selectedEq.status === 'Available') && selectedEq.quantity > 0
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {(selectedEq.status === '可借用' || selectedEq.status === 'available' || selectedEq.status === 'Available') && selectedEq.quantity > 0 ? '可借用' : '不可借用'}
+                </span>
+              </div>
+              
+              <div className="bg-gray-50 border rounded-xl p-5 mb-8">
+                <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
+                  📝 設備詳細說明
+                </h3>
+                {selectedEq.description ? (
+                  <p className="text-gray-600 whitespace-pre-wrap leading-relaxed text-sm">
+                    {selectedEq.description}
+                  </p>
+                ) : (
+                  <p className="text-gray-400 italic text-sm">管理員尚未提供此設備的說明。</p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setSelectedEq(null)}
+                  className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors"
+                >
+                  關閉
+                </button>
+                {/* 借用按鈕邏輯跟卡片上的保持一致 */}
+                {(() => {
+                  const currentQty = selectedEq.quantity ?? 0;
+                  const isAvailable = (selectedEq.status === '可借用' || selectedEq.status === 'available' || selectedEq.status === 'Available') && currentQty > 0;
+                  const cartItem = items.find((i) => i.id === selectedEq.id);
+                  const isMaxReached = cartItem && cartItem.borrowQuantity >= currentQty;
+
+                  return (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addItem({ 
+                          id: selectedEq.id, 
+                          name: selectedEq.name, 
+                          image_url: selectedEq.image_url, 
+                          maxQuantity: currentQty 
+                        });
+                        // 這裡選擇不自動關閉視窗，讓學生可以繼續看說明，或者你可以把下面這行取消註解
+                        // setSelectedEq(null); 
+                      }}
+                      disabled={isMaxReached || !isAvailable}
+                      className={`flex-1 py-3 font-bold rounded-xl transition-colors ${
+                        !isAvailable || isMaxReached
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-green-600 hover:bg-green-700 text-white'
+                      }`}
+                    >
+                      {!isAvailable 
+                        ? '目前無法借用' 
+                        : isMaxReached 
+                        ? '已達庫存上限' 
+                        : cartItem 
+                        ? `再加一個 (已選 ${cartItem.borrowQuantity})` 
+                        : '加入借用清單'}
+                    </button>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
