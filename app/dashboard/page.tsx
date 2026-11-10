@@ -143,14 +143,14 @@ export default function DashboardPage() {
   };
 
   if (loading) return <div className="p-8 text-center">載入中...</div>;
-
+      /*{ 👉 調整手機版 padding }*/
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
       <div className="max-w-[1400px] mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">🛠️ 審核後台管理</h1>
         
-        {/* 👉 新增：審核人員身分設定區塊 */}
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-md flex items-center gap-4">
+        {/* 👉 調整為 flex-col sm:flex-row 讓手機版垂直排列 */}
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-md flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <label className="text-sm font-bold text-yellow-800 whitespace-nowrap">
             👨‍💻 當前審核人員：
           </label>
@@ -159,16 +159,18 @@ export default function DashboardPage() {
             type="text"
             value={reviewerName}
             onChange={handleReviewerNameChange}
-            placeholder="請輸入您的名字 (例如: 設備部-李友仁)"
-            className="w-full max-w-sm border-2 border-yellow-300 rounded p-2 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500 bg-white text-gray-900 font-bold placeholder-gray-500 shadow-inner"
+            placeholder="請輸入您的名字 (例如: 設備部-王某某)"
+            className="w-full sm:max-w-sm border-2 border-yellow-300 rounded p-2 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500 bg-white text-gray-900 font-bold placeholder-gray-500 shadow-inner"
           />
-          <span className="text-xs text-yellow-600">
+          <span className="text-xs text-yellow-600 mt-1 sm:mt-0">
             * 必須填寫才能進行核准或駁回操作
           </span>
         </div>
         
-        <div className="bg-white rounded-xl shadow-md overflow-hidden overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        {/* 👉 加入 w-full 確保容器寬度，並允許水平捲動 */}
+        <div className="bg-white rounded-xl shadow-md overflow-hidden overflow-x-auto w-full">
+          {/* 👉 加入 min-w-[1000px] 避免表格在手機上被擠壓變形 */}
+          <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-gray-800 text-white">
                 <th className="p-4 whitespace-nowrap">申請時間</th>
@@ -224,7 +226,7 @@ export default function DashboardPage() {
                       </span>
                       {/* 👉 修改這裡：顯示是誰審核的 (加深顏色、加粗並加上徽章樣式) */}
                       {req.reviewed_by && (
-                        <span className="text-xs text-slate-700 font-bold bg-slate-100 px-2 py-1 rounded-md mt-1 inline-block border border-slate-200 shadow-sm">
+                        <span className="text-xs text-slate-700 font-bold bg-slate-100 px-2 py-1 rounded-md mt-1 inline-block border border-slate-200 shadow-sm whitespace-nowrap">
                           📝 由 {req.reviewed_by} 審核
                         </span>
                       )}
