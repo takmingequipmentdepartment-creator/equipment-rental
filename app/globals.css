@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* 👉 1. 告訴 Tailwind v4 改用 .dark class 來控制深淺色切換 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -12,11 +15,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* 👉 2. 把原本的 @media (prefers-color-scheme: dark) 改成 .dark 類別 */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
