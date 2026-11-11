@@ -1,22 +1,21 @@
 @import "tailwindcss";
 
-/* 告訴 Tailwind v4 改用 .dark 類別來觸發深色模式 */
-@custom-variant dark (&:where(.dark, .dark *));
+/* 👉 關鍵修正：正式版使用的是 @variant 而不是 @custom-variant */
+@variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* 確保基礎背景和文字顏色正確切換 */
 @layer base {
   :root {
     --background: #ffffff;
     --foreground: #171717;
   }
   .dark {
-    --background: #0f172a; /* 使用 slate-900 作為深色背景 */
-    --foreground: #f8fafc; /* 使用 slate-50 作為深色文字 */
+    --background: #0f172a; 
+    --foreground: #f8fafc; 
   }
   body {
     background-color: var(--background);

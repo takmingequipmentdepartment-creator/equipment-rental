@@ -132,7 +132,6 @@ export default function ManageEquipmentsPage() {
     }
   };
 
-  // 👉 新增：清除圖片的同步函式
   const handleClearImage = () => {
     setImageUrl(''); 
     const fileInput = document.getElementById('image-upload') as HTMLInputElement;
@@ -151,26 +150,33 @@ export default function ManageEquipmentsPage() {
     if (fileInput) fileInput.value = '';
   };
 
-  if (loading) return <div className="p-8 text-center">載入中...</div>;
+  if (loading) return <div className="p-8 text-center dark:text-gray-300">載入中...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-8 transition-colors duration-300">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8">📦 設備管理系統</h1>
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-8">📦 設備管理系統</h1>
         
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8 border-t-4 border-blue-500">
-          <h2 className="text-xl font-bold text-gray-700 mb-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 mb-8 border-t-4 border-blue-500 dark:border-blue-600 transition-colors">
+          <h2 className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4">
             {isEditing ? '✏️ 修改設備資料' : '➕ 新增設備'}
           </h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-gray-700 font-bold mb-2">設備名稱 *</label>
-                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black" placeholder="例：Sony A7M4 相機" />
+                <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">設備名稱 *</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-black dark:text-white transition-colors placeholder-gray-400 dark:placeholder-gray-500" 
+                  placeholder="例：Sony A7M4 相機" 
+                />
               </div>
               <div>
-                <label className="block text-gray-700 font-bold mb-2">庫存數量 *</label>
+                <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">庫存數量 *</label>
                 <input 
                   type="number" 
                   min="0" 
@@ -181,24 +187,24 @@ export default function ManageEquipmentsPage() {
                     setQuantity(newQty);
                     if (newQty === 0) setStatus('unavailable');
                   }} 
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black" 
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-black dark:text-white transition-colors" 
                 />
               </div>
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-gray-700 font-bold mb-2">設備詳細說明 (選填)</label>
+              <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">設備詳細說明 (選填)</label>
               <textarea 
                 value={description} 
                 onChange={(e) => setDescription(e.target.value)} 
                 rows={3}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black resize-y" 
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-black dark:text-white resize-y transition-colors placeholder-gray-400 dark:placeholder-gray-500" 
                 placeholder="例如：包含電池x2、記憶卡x1、充電線。借用前請確認鏡頭無刮傷..." 
               />
             </div>
             
             <div className="row-span-2">
-              <label className="block text-gray-700 font-bold mb-2">設備圖片</label>
+              <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">設備圖片</label>
               <div className="flex flex-col gap-3">
                 <input 
                   id="image-upload"
@@ -206,7 +212,7 @@ export default function ManageEquipmentsPage() {
                   accept="image/*" 
                   onChange={handleImageUpload}
                   disabled={isUploading}
-                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50 cursor-pointer transition-colors"
                 />
                 {isUploading && <span className="text-sm text-blue-500 font-bold animate-pulse">⏳ 圖片上傳中，請稍候...</span>}
                 
@@ -214,15 +220,14 @@ export default function ManageEquipmentsPage() {
                   type="url" 
                   value={imageUrl} 
                   onChange={(e) => setImageUrl(e.target.value)} 
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black text-sm" 
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-black dark:text-white text-sm transition-colors placeholder-gray-400 dark:placeholder-gray-500" 
                   placeholder="或手動貼上圖片連結" 
                 />
                 
-                {/* 👉 修改：加入清除按鈕的圖片預覽區塊 */}
                 {imageUrl && (
-                  <div className="mt-2 border rounded-lg p-3 bg-gray-50 inline-block relative">
-                    <p className="text-xs text-gray-500 mb-2">圖片預覽：</p>
-                    <img src={imageUrl} alt="預覽" className="h-32 object-contain rounded bg-white border" />
+                  <div className="mt-2 border dark:border-slate-600 rounded-lg p-3 bg-gray-50 dark:bg-slate-700/50 inline-block relative transition-colors">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">圖片預覽：</p>
+                    <img src={imageUrl} alt="預覽" className="h-32 object-contain rounded bg-white dark:bg-slate-800 border dark:border-slate-600" />
                     <button
                       type="button"
                       onClick={handleClearImage}
@@ -236,11 +241,11 @@ export default function ManageEquipmentsPage() {
             </div>
 
             <div>
-              <label className="block text-gray-700 font-bold mb-2">設備狀態 *</label>
+              <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">設備狀態 *</label>
               <select 
                 value={status} 
                 onChange={(e) => setStatus(e.target.value)} 
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black ${quantity === 0 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                className={`w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-black dark:text-white transition-colors ${quantity === 0 ? 'bg-gray-100 dark:bg-slate-800 cursor-not-allowed text-gray-500 dark:text-gray-500' : ''}`}
               >
                 <option value="available" disabled={quantity === 0}>
                   可借用 (available) {quantity === 0 ? '🚫 (庫存為0)' : ''}
@@ -250,11 +255,11 @@ export default function ManageEquipmentsPage() {
             </div>
             
             <div className="md:col-span-2 flex gap-4 mt-4">
-              <button type="submit" disabled={isUploading} className={`flex-1 font-bold py-3 px-4 rounded-lg transition text-white ${isUploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+              <button type="submit" disabled={isUploading} className={`flex-1 font-bold py-3 px-4 rounded-lg transition text-white ${isUploading ? 'bg-gray-400 dark:bg-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500'}`}>
                 {isEditing ? '儲存修改' : '確認新增'}
               </button>
               {isEditing && (
-                <button type="button" onClick={resetForm} className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-4 rounded-lg transition">
+                <button type="button" onClick={resetForm} className="flex-1 bg-gray-300 dark:bg-slate-600 hover:bg-gray-400 dark:hover:bg-slate-500 text-gray-800 dark:text-gray-100 font-bold py-3 px-4 rounded-lg transition">
                   取消修改
                 </button>
               )}
@@ -262,10 +267,10 @@ export default function ManageEquipmentsPage() {
           </form>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md overflow-hidden overflow-x-auto">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden overflow-x-auto border border-transparent dark:border-slate-700 transition-colors">
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
-              <tr className="bg-gray-800 text-white">
+              <tr className="bg-gray-800 dark:bg-slate-950 text-white border-b dark:border-slate-700">
                 <th className="p-4 whitespace-nowrap">圖片</th>
                 <th className="p-4 whitespace-nowrap w-1/4">設備名稱 & 說明</th>
                 <th className="p-4 whitespace-nowrap">庫存</th>
@@ -275,30 +280,30 @@ export default function ManageEquipmentsPage() {
             </thead>
             <tbody>
               {equipments.map((eq) => (
-                <tr key={eq.id} className="border-b hover:bg-gray-50">
+                <tr key={eq.id} className="border-b dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-750 transition-colors">
                   <td className="p-4">
                     {eq.image_url ? (
-                      <img src={eq.image_url} alt={eq.name} className="w-16 h-16 object-cover rounded shadow-sm border" />
+                      <img src={eq.image_url} alt={eq.name} className="w-16 h-16 object-cover rounded shadow-sm border dark:border-slate-600" />
                     ) : (
-                      <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">無圖</div>
+                      <div className="w-16 h-16 bg-gray-200 dark:bg-slate-700 rounded flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">無圖</div>
                     )}
                   </td>
                   <td className="p-4">
-                    <div className="font-bold text-gray-800">{eq.name}</div>
+                    <div className="font-bold text-gray-800 dark:text-gray-200">{eq.name}</div>
                     {eq.description && (
-                      <div className="text-xs text-gray-500 mt-1 line-clamp-2" title={eq.description}>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" title={eq.description}>
                         {eq.description}
                       </div>
                     )}
                   </td>
-                  <td className={`p-4 font-bold text-lg ${eq.quantity === 0 ? 'text-red-500' : 'text-blue-600'}`}>
+                  <td className={`p-4 font-bold text-lg ${eq.quantity === 0 ? 'text-red-500 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
                     {eq.quantity ?? 0}
                   </td>
                   <td className="p-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
                       (eq.status === 'available' || eq.status === '可借用') && eq.quantity !== 0 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-red-100 text-red-700'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                        : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                     }`}>
                       {eq.quantity === 0 || eq.status === 'unavailable' ? '不可借用' : '可借用'}
                     </span>
@@ -314,7 +319,7 @@ export default function ManageEquipmentsPage() {
                 </tr>
               ))}
               {equipments.length === 0 && (
-                <tr><td colSpan={5} className="p-8 text-center text-gray-500 font-bold">目前沒有任何設備資料。</td></tr>
+                <tr><td colSpan={5} className="p-8 text-center text-gray-500 dark:text-gray-400 font-bold">目前沒有任何設備資料。</td></tr>
               )}
             </tbody>
           </table>
