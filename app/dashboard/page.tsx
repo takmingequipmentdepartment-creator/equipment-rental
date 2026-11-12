@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../utils/supabase';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link'; // 👉 新增引入 Link
 
 interface RentalRequest {
   id: string;
@@ -170,7 +171,18 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-4 sm:p-8 transition-colors duration-300">
       <div className="max-w-[1400px] mx-auto">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">🛠️ 審核後台管理</h1>
+        
+        {/* 👉 修改：將標題改成 flex 排版，並加入設定頁面按鈕 */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">🛠️ 審核後台管理</h1>
+          
+          <Link 
+            href="/dashboard/settings" 
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-gray-600 flex items-center gap-2 shadow-sm"
+          >
+            ⚙️ 系統與規則設定
+          </Link>
+        </div>
         
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-4 mb-6 rounded-md flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <label className="text-sm font-bold text-yellow-800 dark:text-yellow-500 whitespace-nowrap">

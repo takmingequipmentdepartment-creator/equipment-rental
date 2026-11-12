@@ -21,8 +21,27 @@ export default function CartPage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 👉 新增：規則同意與動態規則狀態
+  const [isAgreed, setIsAgreed] = useState(false);
+  const [dynamicRules, setDynamicRules] = useState('載入規則中...');
+
   useEffect(() => {
     setMounted(true);
+
+    // 👉 新增：從資料庫 system_settings 撈取動態規則
+    const fetchRules = async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('borrow_rules')
+        .eq('id', 1)
+        .single();
+        
+      if (data && !error) {
+        setDynamicRules(data.borrow_rules);
+      }
+    };
+    
+    fetchRules();
   }, []);
 
   if (!mounted) return null;
@@ -31,6 +50,12 @@ export default function CartPage() {
     e.preventDefault();
     if (items.length === 0) {
       alert('您的借用清單是空的！');
+      return;
+    }
+    
+    // 👉 新增防護：確保已勾選同意規則
+    if (!isAgreed) {
+      alert('⚠️ 請先詳細閱讀並勾選同意借用規則！');
       return;
     }
     
@@ -262,12 +287,36 @@ export default function CartPage() {
                 placeholder="接收審核與歸還通知信"
               />
             </div>
+
+            {/* 👉 新增：借用規則同意勾選區塊 (置於送出按鈕上方) */}
+            <div className="flex items-start mt-6 mb-2">
+              <div className="flex items-center h-5">
+                <input
+                  id="rules-agreement"
+                  type="checkbox"
+                  checked={isAgreed}
+                  onChange={(e) => setIsAgreed(e.target.checked)}
+                  className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                />
+              </div>
+              <label 
+                htmlFor="rules-agreement" 
+                className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer leading-relaxed"
+              >
+                我已詳細閱讀並同意借用規則：
+                <br />
+                <span className="text-red-600 dark:text-red-400 font-bold whitespace-pre-wrap">
+                  {dynamicRules}
+                </span>
+              </label>
+            </div>
             
+            {/* 👉 修改：按鈕加上 !isAgreed 的 disabled 狀態判斷 */}
             <button
               type="submit"
-              disabled={items.length === 0 || isSubmitting}
-              className={`w-full py-3.5 rounded-lg font-bold text-white mt-8 transition-all shadow-md ${
-                items.length === 0 || isSubmitting
+              disabled={items.length === 0 || isSubmitting || !isAgreed}
+              className={`w-full py-3.5 rounded-lg font-bold text-white mt-4 transition-all shadow-md ${
+                items.length === 0 || isSubmitting || !isAgreed
                   ? 'bg-gray-400 dark:bg-slate-600 cursor-not-allowed shadow-none'
                   : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 hover:shadow-lg active:scale-[0.98]'
               }`}
