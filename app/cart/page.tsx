@@ -21,14 +21,12 @@ export default function CartPage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 👉 新增：規則同意與動態規則狀態
   const [isAgreed, setIsAgreed] = useState(false);
   const [dynamicRules, setDynamicRules] = useState('載入規則中...');
 
   useEffect(() => {
     setMounted(true);
 
-    // 👉 更新：加入完整的錯誤處理機制
     const fetchRules = async () => {
       const { data, error } = await supabase
         .from('system_settings')
@@ -56,7 +54,6 @@ export default function CartPage() {
       return;
     }
     
-    // 👉 新增防護：確保已勾選同意規則
     if (!isAgreed) {
       alert('⚠️ 請先詳細閱讀並勾選同意借用規則！');
       return;
@@ -126,6 +123,7 @@ export default function CartPage() {
       return;
     }
 
+    // 1. 發送通知信給「管理員」 (原有邏輯)
     fetch('/api/notify-admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -141,8 +139,49 @@ export default function CartPage() {
       })
     }).catch(err => console.error("管理員通知信發送失敗:", err));
 
+    // 👉 2. 新增：發送確認信給「借用者 (學生)」
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: email.trim(), // 寄給畫面上填寫的學生信箱
+        subject: `【德明設備部】借用申請送出成功通知`,
+        html: `
+          <div style="font-family: sans-serif; line-height: 1.6; color: #333; max-w: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">借用申請送出成功！</h2>
+            <p>親愛的 <strong>${studentName.trim()}</strong> 您好：</p>
+            <p>系統已成功收到您的設備借用申請，並已同步通知設備部管理員進行審核。</p>
+            
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #1f2937;">📝 您的申請明細</h3>
+              <ul style="list-style: none; padding-left: 0; margin-bottom: 0;">
+                <li style="margin-bottom: 10px;"><strong>借用單位：</strong>${department.trim()}</li>
+                <li style="margin-bottom: 10px;"><strong>活動名稱：</strong>${activityName.trim()}</li>
+                <li style="margin-bottom: 10px;"><strong>預計借用日：</strong><span style="color: #2563eb; font-weight: bold;">${borrowDate}</span></li>
+                <li style="margin-bottom: 10px;"><strong>預計歸還日：</strong><span style="color: #dc2626; font-weight: bold;">${returnDateString}</span></li>
+                <li><strong>借用設備清單：</strong><br/>
+                  <div style="margin-top: 8px; padding-left: 10px; border-left: 3px solid #9ca3af;">
+                    ${equipmentNames.split(', ').join('<br/>')}
+                  </div>
+                </li>
+              </ul>
+            </div>
+            
+            <p>⏳ <strong>下一步：</strong><br/>
+            審核完成後，系統會再次發送 Email 通知您最終的審核結果（核准或駁回）。請留意您的信箱。</p>
+            
+            <p style="font-size: 12px; color: #6b7280; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+              ※ 此為系統自動發送之信件，請勿直接回覆。<br/>
+              ※ 若有任何疑問，請聯繫德明學生會設備部。<br/>
+              <strong>德明學生會設備部 敬上</strong>
+            </p>
+          </div>
+        `
+      })
+    }).catch(err => console.error("借用者通知信發送失敗:", err));
+
     setIsSubmitting(false);
-    alert(`✅ 借用申請已成功送出！\n系統已為您自動設定應歸還日為：${returnDateString}`);
+    alert(`✅ 借用申請已成功送出！\n系統已發送確認信至您的信箱，應歸還日預設為：${returnDateString}`);
     clearCart();
     router.push('/');
   };
@@ -291,7 +330,6 @@ export default function CartPage() {
               />
             </div>
 
-            {/* 👉 借用規則同意勾選區塊 (置於送出按鈕上方) */}
             <div className="flex items-start mt-6 mb-2">
               <div className="flex items-center h-5">
                 <input
@@ -314,7 +352,6 @@ export default function CartPage() {
               </label>
             </div>
             
-            {/* 👉 按鈕加上 !isAgreed 的 disabled 狀態判斷 */}
             <button
               type="submit"
               disabled={items.length === 0 || isSubmitting || !isAgreed}
