@@ -28,7 +28,7 @@ export default function CartPage() {
   useEffect(() => {
     setMounted(true);
 
-    // 👉 新增：從資料庫 system_settings 撈取動態規則
+    // 👉 更新：加入完整的錯誤處理機制
     const fetchRules = async () => {
       const { data, error } = await supabase
         .from('system_settings')
@@ -36,7 +36,10 @@ export default function CartPage() {
         .eq('id', 1)
         .single();
         
-      if (data && !error) {
+      if (error) {
+        console.error('抓取規則失敗詳細原因:', error);
+        setDynamicRules('無法連線至資料庫取得規則，請聯繫設備部管理員。');
+      } else if (data) {
         setDynamicRules(data.borrow_rules);
       }
     };
@@ -288,7 +291,7 @@ export default function CartPage() {
               />
             </div>
 
-            {/* 👉 新增：借用規則同意勾選區塊 (置於送出按鈕上方) */}
+            {/* 👉 借用規則同意勾選區塊 (置於送出按鈕上方) */}
             <div className="flex items-start mt-6 mb-2">
               <div className="flex items-center h-5">
                 <input
@@ -311,7 +314,7 @@ export default function CartPage() {
               </label>
             </div>
             
-            {/* 👉 修改：按鈕加上 !isAgreed 的 disabled 狀態判斷 */}
+            {/* 👉 按鈕加上 !isAgreed 的 disabled 狀態判斷 */}
             <button
               type="submit"
               disabled={items.length === 0 || isSubmitting || !isAgreed}
