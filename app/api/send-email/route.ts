@@ -12,15 +12,15 @@ export async function POST(request: Request) {
       studentName, 
       equipmentName, 
       status,
-      activityName, // 新增：活動名稱
-      returnDate,   // 新增：應歸還日期
-      reviewedBy    // 新增：審核人員
+      activityName, 
+      returnDate,   
+      reviewedBy    
     } = await request.json();
 
     // 呼叫 Resend 發送信件
     const { data, error } = await resend.emails.send({
-      // ⚠️ 測試階段只能用 onboarding@resend.dev，且只能寄給你註冊 Resend 的信箱
-      from: '德明設備部 <onboarding@resend.dev>',
+      // ✅ 這裡已經改成你的專屬網域！現在可以寄給任何學生的信箱了
+      from: '德明設備部 <noreply@takming-rent.me>',
       to: [email],
       subject: `【德明設備部】借用申請狀態更新：${status}`,
       html: `

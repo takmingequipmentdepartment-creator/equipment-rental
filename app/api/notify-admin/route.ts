@@ -18,8 +18,9 @@ export async function POST(request: Request) {
     } = await request.json();
 
     const { data, error } = await resend.emails.send({
-      from: '系統通知 <onboarding@resend.dev>',
-      // ⚠️ 關鍵：這裡請務必填寫你「註冊 Resend 的那個管理員信箱」
+      // ✅ 已經替換為你的專屬網域！
+      from: '系統通知 <noreply@takming-rent.me>',
+      // ⚠️ 這是寄給管理員的通知，維持填寫你們的團隊信箱沒錯
       to: ['takmingequipmentdepartment@gmail.com'], 
       subject: `🚨【新申請通知】${studentName} 提交了借用申請`,
       html: `
