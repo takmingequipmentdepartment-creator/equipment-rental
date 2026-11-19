@@ -45,9 +45,10 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 transition-colors">
       <div className="flex justify-between items-center max-w-6xl mx-auto px-4 sm:px-8 h-16">
         
-        {/* 左側標題 */}
+        {/* 左側標題：管理員點擊回審核後台，一般使用者回首頁 */}
         <Link
-          href="/"
+          href={isLogin ? '/dashboard' : '/'}
+          onClick={() => setIsMenuOpen(false)}
           className="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 whitespace-nowrap"
         >
           德明學生會 設備部
@@ -72,14 +73,18 @@ export default function Navbar() {
             ${isMenuOpen ? 'flex' : 'hidden md:flex'}
           `}
         >
-          <Link
-            href="/"
-            onClick={() => setIsMenuOpen(false)}
-            className="text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors py-1 md:py-0"
-          >
-            設備清單
-          </Link>
+          {/* 未登入才顯示設備清單 */}
+          {!isLogin && (
+            <Link
+              href="/"
+              onClick={() => setIsMenuOpen(false)}
+              className="text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors py-1 md:py-0"
+            >
+              設備清單
+            </Link>
+          )}
 
+          {/* 管理員專屬選單 */}
           {isLogin && (
             <>
               <Link
@@ -99,7 +104,8 @@ export default function Navbar() {
             </>
           )}
 
-          {mounted && (
+          {/* 未登入才顯示借用清單 */}
+          {mounted && !isLogin && (
             <Link
               href="/cart"
               onClick={() => setIsMenuOpen(false)}
