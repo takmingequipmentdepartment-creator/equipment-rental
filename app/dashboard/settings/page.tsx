@@ -2,16 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../../utils/supabase';
 
 export default function AdminSettings() {
   const [rules, setRules] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const router = useRouter();
 
-  // 載入目前規則
+  // 驗證登入並載入目前規則
   useEffect(() => {
-    const fetchRules = async () => {
+    const init = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        alert('請先以管理員身分登入！');
+        router.push('/login');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('system_settings')
         .select('borrow_rules')
@@ -23,21 +35,25 @@ export default function AdminSettings() {
       }
       setIsLoading(false);
     };
-    fetchRules();
-  }, []);
 
-  // 儲存修改後的規則
+    init();
+  }, [router]);
+
+  // 儲存修改後的規則（含防假成功檢查）
   const handleSave = async () => {
     setIsSaving(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('system_settings')
       .update({ borrow_rules: rules })
-      .eq('id', 1);
+      .eq('id', 1)
+      .select();
 
-    if (!error) {
-      alert('借用規則已更新，前台申請表單將立即同步。');
-    } else {
+    if (error) {
       alert(`更新失敗：${error.message}`);
+    } else if (!data || data.length === 0) {
+      alert('更新失敗：沒有修改權限或找不到設定資料，請檢查 Supabase RLS 設定。');
+    } else {
+      alert('借用規則已更新，前台申請表單將立即同步。');
     }
     setIsSaving(false);
   };
