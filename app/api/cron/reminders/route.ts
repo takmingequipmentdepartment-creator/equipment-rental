@@ -1,26 +1,23 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '../../../../utils/supabase'; 
+import { supabase } from '../../../../utils/supabase';
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(request: Request) {
-  // 👉 關鍵修正：將讀取 Headers 的動作移到 try...catch 區塊「外面」！
-  // 這樣 Next.js 在編譯階段的「中斷切換訊號」才不會被我們的 catch 攔截導致報錯
   const authHeader = request.headers.get('authorization');
-  
+
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  // 👇 從這裡開始才是真正的商業邏輯與資料庫操作，放進 try...catch 保護
   try {
-    // 取得今天的日期 (轉換為 YYYY-MM-DD 格式，以台灣時間為準)
+    // 取得今天的日期 (YYYY-MM-DD，以台灣時間 UTC+8 為準)
     const today = new Date();
-    const twTime = new Date(today.getTime() + (8 * 60 * 60 * 1000));
+    const twTime = new Date(today.getTime() + 8 * 60 * 60 * 1000);
     const todayString = twTime.toISOString().split('T')[0];
 
-    // 去資料庫尋找「今天到期」且「尚未歸還」的申請單
+    // 尋找「今天到期」且「已借出」的申請單
     const { data: dueRequests, error } = await supabase
       .from('rental_requests')
       .select('*')
@@ -32,39 +29,57 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: '今天沒有需要歸還的設備' });
     }
 
-    // 針對每一筆到期的訂單，發送提醒信
+    // 針對每一筆到期訂單發送提醒信
     for (const req of dueRequests) {
-      await resend.emails.send({
-        from: '德明設備部 <onboarding@resend.dev>', // 測試階段請用 onboarding
-        to: [req.email], 
-        subject: `【歸還提醒】🚨 您的設備借用期限就是今天！`,
+      const formattedEquipment = req.equipment_name
+        ? req.equipment_name.split(', ').join('<br/>')
+        : '未填寫';
+
+      const { error: mailError } = await resend.emails.send({
+        from: '德明學生會 設備部 <noreply@takming-rent.me>',
+        to: [req.email],
+        subject: `【德明學生會 設備部】設備歸還提醒：借用期限為今日`,
         html: `
-          <div style="font-family: sans-serif; padding: 20px; color: #333; line-height: 1.6;">
-            <h2 style="color: #dc2626;">🚨 設備歸還提醒！</h2>
-            <p><strong>${req.student_name}</strong> 同學您好：</p>
-            <p>您於 <strong>${req.activity_name || '未填寫活動'}</strong> 借用的設備，歸還期限為 <strong>今天 (${todayString})</strong>，請務必於今日內歸還至設備部。</p>
-            
-            <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; border: 1px solid #f87171;">
-              <h3 style="margin-top: 0; color: #991b1b;">📦 應歸還設備清單</h3>
-              <p style="font-weight: bold; font-size: 16px;">${req.equipment_name}</p>
+          <div style="font-family: sans-serif; line-height: 1.6; color: #18181b; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="border-bottom: 1px solid #e4e4e7; padding-bottom: 12px; font-weight: 600; font-size: 20px;">
+              設備歸還提醒
+            </h2>
+            <p>您好，<strong>${req.student_name}</strong> 同學：</p>
+            <p>
+              您為 <strong>${req.activity_name || '未填寫活動'}</strong> 借用的設備，歸還期限為
+              <strong style="color: #dc2626;">今日（${todayString}）</strong>，請務必於今日內歸還至設備部。
+            </p>
+
+            <div style="background-color: #f4f4f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0; font-size: 15px; color: #18181b;">應歸還設備清單</h3>
+              <div style="font-size: 14px; padding-left: 10px; border-left: 2px solid #a1a1aa;">
+                ${formattedEquipment}
+              </div>
             </div>
 
-            <br />
-            <p style="font-size: 14px; color: #666;">
-              若已歸還請忽略此信；若需延期或有任何問題，請盡快聯繫德明學生會設備部。<br />
+            <p style="font-size: 14px; color: #3f3f46;">
+              若已完成歸還請忽略此信；如需申請延期或有任何疑問，請盡快聯繫德明學生會 設備部。
+            </p>
+
+            <p style="font-size: 12px; color: #71717a; margin-top: 30px; border-top: 1px solid #e4e4e7; padding-top: 15px;">
+              ※ 此為系統自動發送之提醒信件，請勿直接回覆。<br />
+              <strong>德明學生會 設備部</strong>
             </p>
           </div>
         `,
       });
+
+      if (mailError) {
+        console.error(`寄送歸還提醒失敗 (${req.email}):`, mailError.message);
+      }
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `已成功發送 ${dueRequests.length} 封歸還提醒信！` 
+    return NextResponse.json({
+      success: true,
+      message: `已處理 ${dueRequests.length} 封歸還提醒信。`,
     });
-
   } catch (error: any) {
-    console.error("Cron Job 執行失敗:", error);
+    console.error('Cron Job 執行失敗:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

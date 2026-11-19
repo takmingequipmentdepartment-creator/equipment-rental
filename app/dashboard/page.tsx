@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../utils/supabase';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link'; // 👉 新增引入 Link
+import Link from 'next/link';
 
 interface RentalRequest {
   id: string;
@@ -32,12 +32,10 @@ export default function DashboardPage() {
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewerName, setReviewerName] = useState('');
-  
   const [selectedRequest, setSelectedRequest] = useState<RentalRequest | null>(null);
-  
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
-  
+
   const router = useRouter();
 
   const fetchRequests = async () => {
@@ -48,7 +46,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('rental_requests')
       .select('*')
       .order('created_at', { ascending: false });
@@ -71,11 +69,11 @@ export default function DashboardPage() {
 
   const fetchAuditLogs = async (requestId: string) => {
     setLogsLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('audit_logs')
       .select('*')
       .eq('request_id', requestId)
-      .order('created_at', { ascending: true }); 
+      .order('created_at', { ascending: true });
 
     if (data) setAuditLogs(data);
     setLogsLoading(false);
@@ -88,7 +86,7 @@ export default function DashboardPage() {
 
   const handleUpdateStatus = async (request: RentalRequest, newStatus: string) => {
     if (!reviewerName.trim()) {
-      alert('⚠️ 請先在畫面上方填寫「當前審核人員名稱」才能進行操作！');
+      alert('請先在畫面上方填寫「當前審核人員名稱」才能進行操作！');
       return;
     }
 
@@ -96,9 +94,9 @@ export default function DashboardPage() {
 
     const { error: updateError } = await supabase
       .from('rental_requests')
-      .update({ 
+      .update({
         status: newStatus,
-        reviewed_by: reviewerName
+        reviewed_by: reviewerName,
       })
       .eq('id', request.id);
 
@@ -107,14 +105,16 @@ export default function DashboardPage() {
       return;
     }
 
-    await supabase.from('audit_logs').insert([{
-      request_id: request.id,
-      action: newStatus,
-      operator: reviewerName
-    }]);
+    await supabase.from('audit_logs').insert([
+      {
+        request_id: request.id,
+        action: newStatus,
+        operator: reviewerName,
+      },
+    ]);
 
     if (newStatus === '駁回' || newStatus === '已歸還') {
-      const equipmentArray = request.equipment_name.split(', ').map(name => name.trim());
+      const equipmentArray = request.equipment_name.split(', ').map((name) => name.trim());
       for (const eqStr of equipmentArray) {
         const match = eqStr.match(/(.+) x(\d+)$/);
         const name = match ? match[1] : eqStr;
@@ -147,102 +147,123 @@ export default function DashboardPage() {
           status: newStatus,
           reviewedBy: reviewerName,
           returnDate: request.return_date,
-          activityName: request.activity_name
+          activityName: request.activity_name,
         }),
       });
 
       if (emailRes.ok) {
-        alert(`✅ 已成功將狀態更改為「${newStatus}」並發送通知信！`);
+        alert(`已成功將狀態更改為「${newStatus}」並發送通知信！`);
       }
     } catch (err) {
       console.error('網路錯誤:', err);
     }
 
     fetchRequests();
-    
+
     if (selectedRequest) {
       setSelectedRequest({ ...request, status: newStatus, reviewed_by: reviewerName });
       fetchAuditLogs(request.id);
     }
   };
 
-  if (loading) return <div className="p-4 sm:p-8 text-center dark:text-gray-300">載入中...</div>;
+  // 極簡狀態小圓點
+  const getStatusDot = (status: string) => {
+    if (status === '審核中') return 'bg-amber-500';
+    if (status === '已借出') return 'bg-zinc-900 dark:bg-zinc-100';
+    if (status === '已歸還') return 'bg-emerald-500';
+    return 'bg-red-500';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-10 text-center text-sm text-zinc-500">
+        載入中...
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-4 sm:p-8 transition-colors duration-300">
-      <div className="max-w-[1400px] mx-auto">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 px-4 py-10 sm:px-8 transition-colors">
+      <div className="max-w-6xl mx-auto">
         
-        {/* 👉 修改：將標題改成 flex 排版，並加入設定頁面按鈕 */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">🛠️ 審核後台管理</h1>
-          
-          <Link 
-            href="/dashboard/settings" 
-            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-gray-600 flex items-center gap-2 shadow-sm"
+        {/* 頁首 */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-6 border-b border-zinc-200 dark:border-zinc-800 gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">審核後台</h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">管理借用申請單與歸還紀錄</p>
+          </div>
+          <Link
+            href="/dashboard/settings"
+            className="bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 px-4 py-2 rounded-md text-sm font-medium transition-colors"
           >
-            ⚙️ 系統與規則設定
+            系統與規則設定
           </Link>
         </div>
-        
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-4 mb-6 rounded-md flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <label className="text-sm font-bold text-yellow-800 dark:text-yellow-500 whitespace-nowrap">
-            👨‍💻 當前審核人員：
+
+        {/* 審核人員欄位 */}
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 mb-6 rounded-lg flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+            當前審核人員
           </label>
           <input
             type="text"
             value={reviewerName}
             onChange={handleReviewerNameChange}
-            placeholder="請輸入您的名字 (如: 設備部-蛇丸)"
-            className="w-full sm:max-w-sm border-2 border-yellow-300 dark:border-yellow-700 rounded p-2 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500 bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 font-bold placeholder-gray-500 dark:placeholder-gray-400 shadow-inner transition-colors"
+            placeholder="請輸入姓名（必填）"
+            className="w-full sm:max-w-xs border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-1.5 text-sm bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 transition-colors"
           />
-          <span className="text-xs text-yellow-600 dark:text-yellow-500 mt-1 sm:mt-0">
-            * 必須填寫才能進行核准或駁回操作
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">
+            核准或駁回前須先填寫操作人
           </span>
         </div>
-        
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden overflow-x-auto w-full border border-transparent dark:border-slate-700 transition-colors">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
+
+        {/* 申請單列表 */}
+        <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
-              <tr className="bg-gray-800 dark:bg-slate-950 text-white border-b dark:border-slate-700">
-                <th className="p-4 whitespace-nowrap">申請時間</th>
-                <th className="p-4 whitespace-nowrap">活動名稱</th> 
-                <th className="p-4 whitespace-nowrap">申請單位</th>
-                <th className="p-4 whitespace-nowrap">申請人</th>
-                <th className="p-4 whitespace-nowrap">目前狀態</th>
-                <th className="p-4 whitespace-nowrap text-center">操作</th>
+              <tr className="border-b border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-50/50 dark:bg-zinc-950/50">
+                <th className="px-5 py-3.5">申請時間</th>
+                <th className="px-5 py-3.5">活動名稱</th>
+                <th className="px-5 py-3.5">申請單位</th>
+                <th className="px-5 py-3.5">申請人</th>
+                <th className="px-5 py-3.5">狀態</th>
+                <th className="px-5 py-3.5 text-right">操作</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-sm">
               {requests.map((req) => (
-                <tr 
-                  key={req.id} 
+                <tr
+                  key={req.id}
                   onClick={() => handleOpenModal(req)}
-                  className="border-b dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-750 cursor-pointer transition-colors"
+                  className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors"
                 >
-                  <td className="p-4 text-sm text-gray-600 dark:text-gray-400">
-                    {new Date(req.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  <td className="px-5 py-4 text-xs text-zinc-500 dark:text-zinc-400 font-mono">
+                    {new Date(req.created_at).toLocaleString('zh-TW', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </td>
-                  <td className="p-4 font-bold text-gray-800 dark:text-gray-200">{req.activity_name || '未填寫'}</td>
-                  <td className="p-4 text-gray-600 dark:text-gray-400">{req.department || '未填寫'}</td>
-                  <td className="p-4 font-bold text-gray-800 dark:text-gray-200">{req.student_name}</td>
-                  <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-                      req.status === '審核中' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                      req.status === '已借出' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                      req.status === '已歸還' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                      'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                    }`}>
+                  <td className="px-5 py-4 font-medium">{req.activity_name || '未填寫'}</td>
+                  <td className="px-5 py-4 text-zinc-600 dark:text-zinc-400">{req.department || '未填寫'}</td>
+                  <td className="px-5 py-4">{req.student_name}</td>
+                  <td className="px-5 py-4">
+                    <span className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950">
+                      <span className={`w-1.5 h-1.5 rounded-full ${getStatusDot(req.status)}`} />
                       {req.status}
                     </span>
                   </td>
-                  <td className="p-4 text-center">
-                    <span className="text-blue-500 dark:text-blue-400 font-bold text-sm hover:underline">查看詳情 & 操作 ➔</span>
+                  <td className="px-5 py-4 text-right text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+                    檢視 &rarr;
                   </td>
                 </tr>
               ))}
               {requests.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-500 dark:text-gray-400">目前沒有任何申請單。</td>
+                  <td colSpan={6} className="p-10 text-center text-sm text-zinc-400">
+                    目前沒有任何申請單。
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -250,130 +271,143 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* 申請單詳情 Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity" onClick={() => setSelectedRequest(null)}>
-          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col border border-transparent dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
-            
-            <div className="p-6 border-b dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-800/90 sticky top-0 z-10 backdrop-blur transition-colors">
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                📄 申請單詳細資訊
-              </h2>
-              <button 
+        <div
+          className="fixed inset-0 bg-black/50 dark:bg-black/75 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+          onClick={() => setSelectedRequest(null)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-900 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-zinc-200 dark:border-zinc-800 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center sticky top-0 bg-white dark:bg-zinc-900 z-10">
+              <div className="flex items-center gap-3">
+                <h2 className="text-base font-semibold">申請單詳細資訊</h2>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border border-zinc-200 dark:border-zinc-700">
+                  <span className={`w-1.5 h-1.5 rounded-full ${getStatusDot(selectedRequest.status)}`} />
+                  {selectedRequest.status}
+                </span>
+              </div>
+              <button
                 onClick={() => setSelectedRequest(null)}
-                className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center font-bold transition-colors"
+                className="text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 w-8 h-8 flex items-center justify-center rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-gray-50 dark:bg-slate-900/50 p-5 rounded-xl border border-gray-100 dark:border-slate-700 transition-colors">
+            <div className="p-6 space-y-6 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">申請時間</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-200">
-                    {new Date(selectedRequest.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  <p className="text-xs text-zinc-500 mb-1">申請時間</p>
+                  <p className="font-mono text-xs">
+                    {new Date(selectedRequest.created_at).toLocaleString('zh-TW')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">活動名稱</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-200">{selectedRequest.activity_name || '未填寫'}</p>
+                  <p className="text-xs text-zinc-500 mb-1">活動名稱</p>
+                  <p className="font-medium">{selectedRequest.activity_name || '未填寫'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">借用人 / 單位</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-200">{selectedRequest.student_name} ({selectedRequest.department})</p>
+                  <p className="text-xs text-zinc-500 mb-1">借用人 / 單位</p>
+                  <p className="font-medium">
+                    {selectedRequest.student_name}（{selectedRequest.department}）
+                  </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">聯絡方式</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-200">{selectedRequest.phone}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{selectedRequest.email}</p>
+                  <p className="text-xs text-zinc-500 mb-1">聯絡方式</p>
+                  <p>{selectedRequest.phone}</p>
+                  <p className="text-xs text-zinc-500">{selectedRequest.email}</p>
                 </div>
-                <div className="sm:col-span-2 flex gap-4 border-t dark:border-slate-700 pt-4 mt-2">
-                  <div className="flex-1 bg-white dark:bg-slate-800 p-3 rounded shadow-sm border border-gray-200 dark:border-slate-600 transition-colors">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">預計借用日</p>
-                    <p className="font-bold text-blue-700 dark:text-blue-400">{selectedRequest.borrow_date || '未設定'}</p>
-                  </div>
-                  <div className="flex-1 bg-white dark:bg-slate-800 p-3 rounded shadow-sm border border-gray-200 dark:border-slate-600 transition-colors">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">應歸還日期</p>
-                    <p className="font-bold text-red-600 dark:text-red-400">{selectedRequest.return_date || '未設定'}</p>
-                  </div>
+                <div>
+                  <p className="text-xs text-zinc-500 mb-1">預計借用日</p>
+                  <p className="font-medium">{selectedRequest.borrow_date || '未設定'}</p>
                 </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-3 border-l-4 border-blue-500 pl-3">📦 借用清單</h3>
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 p-4 rounded-xl transition-colors">
-                  <p className="font-bold text-blue-800 dark:text-blue-300 leading-relaxed">
-                    {selectedRequest.equipment_name}
+                <div>
+                  <p className="text-xs text-zinc-500 mb-1">應歸還日期</p>
+                  <p className="font-medium text-red-600 dark:text-red-400">
+                    {selectedRequest.return_date || '未設定'}
                   </p>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-3 border-l-4 border-emerald-500 pl-3">🕒 操作歷程紀錄</h3>
-                <div className="bg-slate-50 dark:bg-slate-900/50 border border-transparent dark:border-slate-700 rounded-xl p-4 transition-colors">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-zinc-500 mb-2">
+                  借用設備
+                </h3>
+                <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 p-4 rounded-lg">
+                  <p className="leading-relaxed">{selectedRequest.equipment_name}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-medium uppercase tracking-wider text-zinc-500 mb-2">
+                  操作歷程
+                </h3>
+                <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4">
                   {logsLoading ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">載入紀錄中...</p>
+                    <p className="text-xs text-zinc-400">載入紀錄中...</p>
                   ) : auditLogs.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       {auditLogs.map((log) => (
-                        <div key={log.id} className="flex items-start gap-3 text-sm border-b border-gray-200 dark:border-slate-700 last:border-0 pb-3 last:pb-0">
-                          <div className="mt-1 text-slate-400 dark:text-slate-500 font-mono text-xs whitespace-nowrap">
-                            {new Date(log.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                          <div>
-                            <span className="font-bold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-xs mr-2 transition-colors">
-                              {log.operator}
-                            </span>
-                            <span className="text-slate-600 dark:text-slate-400">
-                              將狀態變更為 <span className="font-bold text-blue-600 dark:text-blue-400">[{log.action}]</span>
-                            </span>
-                          </div>
+                        <div
+                          key={log.id}
+                          className="flex items-center gap-3 text-xs border-b border-zinc-200 dark:border-zinc-800 last:border-0 pb-2.5 last:pb-0"
+                        >
+                          <span className="text-zinc-400 font-mono whitespace-nowrap">
+                            {new Date(log.created_at).toLocaleString('zh-TW', {
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                          <span className="font-medium">{log.operator}</span>
+                          <span className="text-zinc-500">變更為 {log.action}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">尚無任何操作紀錄，目前為初始申請狀態。</p>
+                    <p className="text-xs text-zinc-400">尚無操作紀錄。</p>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="p-6 bg-slate-800 dark:bg-slate-950 text-white mt-auto rounded-b-2xl border-t dark:border-slate-800 transition-colors">
-              <div className="flex justify-between items-center mb-4">
-                <span className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-sm ${
-                  selectedRequest.status === '審核中' ? 'bg-yellow-400 text-yellow-900' :
-                  selectedRequest.status === '已借出' ? 'bg-blue-400 text-blue-900' :
-                  selectedRequest.status === '已歸還' ? 'bg-green-400 text-green-900' :
-                  'bg-red-400 text-red-900'
-                }`}>
-                  當前狀態：{selectedRequest.status}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-3 border-t border-slate-700 dark:border-slate-800 pt-4">
+            <div className="px-6 py-4 bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 mt-auto">
+              <div className="flex gap-3">
                 {selectedRequest.status === '審核中' && (
                   <>
-                    <button onClick={() => handleUpdateStatus(selectedRequest, '已借出')} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white py-3 rounded-lg font-bold transition-colors shadow-lg">
-                      ✅ 核准借出
+                    <button
+                      onClick={() => handleUpdateStatus(selectedRequest, '已借出')}
+                      className="flex-1 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 py-2.5 rounded-md text-sm font-medium transition-colors"
+                    >
+                      核准借出
                     </button>
-                    <button onClick={() => handleUpdateStatus(selectedRequest, '駁回')} className="flex-1 bg-red-500 hover:bg-red-400 text-white py-3 rounded-lg font-bold transition-colors shadow-lg">
-                      ❌ 駁回申請
+                    <button
+                      onClick={() => handleUpdateStatus(selectedRequest, '駁回')}
+                      className="flex-1 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 border border-zinc-300 dark:border-zinc-700 py-2.5 rounded-md text-sm font-medium transition-colors"
+                    >
+                      駁回申請
                     </button>
                   </>
                 )}
                 {selectedRequest.status === '已借出' && (
-                  <button onClick={() => handleUpdateStatus(selectedRequest, '已歸還')} className="w-full bg-green-500 hover:bg-green-400 text-white py-3 rounded-lg font-bold transition-colors shadow-lg text-lg">
-                    📦 標記為「已歸還」
+                  <button
+                    onClick={() => handleUpdateStatus(selectedRequest, '已歸還')}
+                    className="w-full bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 py-2.5 rounded-md text-sm font-medium transition-colors"
+                  >
+                    標記為已歸還
                   </button>
                 )}
                 {(selectedRequest.status === '已歸還' || selectedRequest.status === '駁回') && (
-                  <div className="w-full bg-slate-700 text-slate-300 dark:text-slate-400 py-3 rounded-lg font-bold text-center border border-slate-600 dark:border-slate-800 transition-colors">
+                  <div className="w-full text-center text-xs text-zinc-400 py-2">
                     此訂單已結案，無法再變更狀態。
                   </div>
                 )}
               </div>
             </div>
-
           </div>
         </div>
       )}

@@ -25,20 +25,22 @@ export default function ManageEquipmentsPage() {
   const [imageUrl, setImageUrl] = useState('');
   const [quantity, setQuantity] = useState<number>(1);
   const [status, setStatus] = useState('available');
-  const [description, setDescription] = useState(''); 
-  
+  const [description, setDescription] = useState('');
+
   // 圖片上傳狀態
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchEquipments = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) {
       alert('請先以管理員身分登入！');
       router.push('/login');
       return;
     }
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('equipments')
       .select('*')
       .order('created_at', { ascending: false });
@@ -92,17 +94,17 @@ export default function ManageEquipmentsPage() {
       image_url: imageUrl,
       quantity,
       status: finalStatus,
-      description: description.trim(), 
+      description: description.trim(),
     };
 
     if (isEditing && editId) {
       const { error } = await supabase.from('equipments').update(payload).eq('id', editId);
       if (error) alert('修改失敗：' + error.message);
-      else alert('✅ 修改成功！');
+      else alert('修改成功！');
     } else {
       const { error } = await supabase.from('equipments').insert([payload]);
       if (error) alert('新增失敗：' + error.message);
-      else alert('✅ 新增成功！');
+      else alert('新增成功！');
     }
 
     resetForm();
@@ -115,27 +117,27 @@ export default function ManageEquipmentsPage() {
     setName(eq.name);
     setImageUrl(eq.image_url || '');
     setQuantity(eq.quantity || 0);
-    setDescription(eq.description || ''); 
+    setDescription(eq.description || '');
     setStatus(eq.quantity === 0 ? 'unavailable' : eq.status);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (id: string, eqName: string) => {
-    if (!confirm(`確定要刪除「${eqName}」嗎？這個動作無法復原喔！`)) return;
+    if (!confirm(`確定要刪除「${eqName}」嗎？此動作無法復原。`)) return;
 
     const { error } = await supabase.from('equipments').delete().eq('id', id);
     if (error) {
       alert('刪除失敗：' + error.message);
     } else {
-      alert('🗑️ 設備已刪除');
+      alert('設備已刪除。');
       fetchEquipments();
     }
   };
 
   const handleClearImage = () => {
-    setImageUrl(''); 
+    setImageUrl('');
     const fileInput = document.getElementById('image-upload') as HTMLInputElement;
-    if (fileInput) fileInput.value = ''; 
+    if (fileInput) fileInput.value = '';
   };
 
   const resetForm = () => {
@@ -145,181 +147,277 @@ export default function ManageEquipmentsPage() {
     setImageUrl('');
     setQuantity(1);
     setStatus('available');
-    setDescription(''); 
+    setDescription('');
     const fileInput = document.getElementById('image-upload') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
   };
 
-  if (loading) return <div className="p-8 text-center dark:text-gray-300">載入中...</div>;
+  const inputClass =
+    'w-full px-3.5 py-2 text-sm border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-md focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 transition-colors placeholder-zinc-400 dark:placeholder-zinc-600';
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-10 text-center text-sm text-zinc-500">
+        載入中...
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-8 transition-colors duration-300">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-8">📦 設備管理系統</h1>
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 px-4 py-10 sm:px-8 transition-colors">
+      <div className="max-w-6xl mx-auto">
         
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 mb-8 border-t-4 border-blue-500 dark:border-blue-600 transition-colors">
-          <h2 className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4">
-            {isEditing ? '✏️ 修改設備資料' : '➕ 新增設備'}
-          </h2>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">設備名稱 *</label>
-                <input 
-                  type="text" 
-                  required 
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)} 
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-black dark:text-white transition-colors placeholder-gray-400 dark:placeholder-gray-500" 
-                  placeholder="例：Sony A7M4 相機" 
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">庫存數量 *</label>
-                <input 
-                  type="number" 
-                  min="0" 
-                  required 
-                  value={quantity} 
-                  onChange={(e) => {
-                    const newQty = parseInt(e.target.value) || 0;
-                    setQuantity(newQty);
-                    if (newQty === 0) setStatus('unavailable');
-                  }} 
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-black dark:text-white transition-colors" 
-                />
-              </div>
+        {/* 頁首 */}
+        <div className="mb-8 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+          <h1 className="text-2xl font-semibold tracking-tight">設備管理</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+            新增、編輯設備資料與庫存狀態
+          </p>
+        </div>
+
+        {/* 新增 / 編輯表單卡片 */}
+        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 sm:p-8 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-base font-semibold tracking-tight">
+              {isEditing ? '編輯設備資料' : '新增設備'}
+            </h2>
+            {isEditing && (
+              <span className="text-xs px-2.5 py-0.5 rounded-full border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400">
+                編輯模式
+              </span>
+            )}
+          </div>
+
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                設備名稱 *
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={inputClass}
+                placeholder="例如：Sony A7M4 相機"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                庫存數量 *
+              </label>
+              <input
+                type="number"
+                min="0"
+                required
+                value={quantity}
+                onChange={(e) => {
+                  const newQty = parseInt(e.target.value) || 0;
+                  setQuantity(newQty);
+                  if (newQty === 0) setStatus('unavailable');
+                }}
+                className={inputClass}
+              />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">設備詳細說明 (選填)</label>
-              <textarea 
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)} 
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                設備詳細說明（選填）
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-black dark:text-white resize-y transition-colors placeholder-gray-400 dark:placeholder-gray-500" 
-                placeholder="例如：包含電池x2、記憶卡x1、充電線。借用前請確認鏡頭無刮傷..." 
+                className={`${inputClass} resize-y leading-relaxed`}
+                placeholder="例如：包含電池x2、記憶卡x1、充電線。借用前請確認鏡頭無刮傷..."
               />
             </div>
-            
-            <div className="row-span-2">
-              <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">設備圖片</label>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                設備圖片
+              </label>
               <div className="flex flex-col gap-3">
-                <input 
+                <input
                   id="image-upload"
-                  type="file" 
-                  accept="image/*" 
+                  type="file"
+                  accept="image/*"
                   onChange={handleImageUpload}
                   disabled={isUploading}
-                  className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50 cursor-pointer transition-colors"
+                  className="w-full text-xs text-zinc-500 dark:text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-zinc-300 dark:file:border-zinc-700 file:text-xs file:font-medium file:bg-zinc-50 dark:file:bg-zinc-800 file:text-zinc-700 dark:file:text-zinc-200 hover:file:bg-zinc-100 dark:hover:file:bg-zinc-700 cursor-pointer transition-colors"
                 />
-                {isUploading && <span className="text-sm text-blue-500 font-bold animate-pulse">⏳ 圖片上傳中，請稍候...</span>}
-                
-                <input 
-                  type="url" 
-                  value={imageUrl} 
-                  onChange={(e) => setImageUrl(e.target.value)} 
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-black dark:text-white text-sm transition-colors placeholder-gray-400 dark:placeholder-gray-500" 
-                  placeholder="或手動貼上圖片連結" 
+                {isUploading && (
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400 animate-pulse">
+                    圖片上傳中，請稍候...
+                  </span>
+                )}
+
+                <input
+                  type="url"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  className={inputClass}
+                  placeholder="或手動貼上圖片連結"
                 />
-                
+
                 {imageUrl && (
-                  <div className="mt-2 border dark:border-slate-600 rounded-lg p-3 bg-gray-50 dark:bg-slate-700/50 inline-block relative transition-colors">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">圖片預覽：</p>
-                    <img src={imageUrl} alt="預覽" className="h-32 object-contain rounded bg-white dark:bg-slate-800 border dark:border-slate-600" />
-                    <button
-                      type="button"
-                      onClick={handleClearImage}
-                      className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-2 py-1 rounded shadow"
-                    >
-                      移除圖片
-                    </button>
+                  <div className="mt-1 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 bg-zinc-50 dark:bg-zinc-950 inline-flex flex-col gap-2 w-fit">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-xs text-zinc-500">圖片預覽</span>
+                      <button
+                        type="button"
+                        onClick={handleClearImage}
+                        className="text-xs text-zinc-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                      >
+                        移除
+                      </button>
+                    </div>
+                    <img
+                      src={imageUrl}
+                      alt="預覽"
+                      className="h-28 object-contain rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+                    />
                   </div>
                 )}
               </div>
             </div>
 
             <div>
-              <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">設備狀態 *</label>
-              <select 
-                value={status} 
-                onChange={(e) => setStatus(e.target.value)} 
-                className={`w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-black dark:text-white transition-colors ${quantity === 0 ? 'bg-gray-100 dark:bg-slate-800 cursor-not-allowed text-gray-500 dark:text-gray-500' : ''}`}
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+                設備狀態 *
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className={`${inputClass} ${
+                  quantity === 0 ? 'opacity-60 cursor-not-allowed' : ''
+                }`}
               >
                 <option value="available" disabled={quantity === 0}>
-                  可借用 (available) {quantity === 0 ? '🚫 (庫存為0)' : ''}
+                  可借用（available）{quantity === 0 ? ' - 庫存為 0' : ''}
                 </option>
-                <option value="unavailable">目前無法借用 (unavailable)</option>
+                <option value="unavailable">目前無法借用（unavailable）</option>
               </select>
             </div>
-            
-            <div className="md:col-span-2 flex gap-4 mt-4">
-              <button type="submit" disabled={isUploading} className={`flex-1 font-bold py-3 px-4 rounded-lg transition text-white ${isUploading ? 'bg-gray-400 dark:bg-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500'}`}>
+
+            <div className="md:col-span-2 flex gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={isUploading}
+                className={`px-6 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                  isUploading
+                    ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
+                    : 'bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900'
+                }`}
+              >
                 {isEditing ? '儲存修改' : '確認新增'}
               </button>
               {isEditing && (
-                <button type="button" onClick={resetForm} className="flex-1 bg-gray-300 dark:bg-slate-600 hover:bg-gray-400 dark:hover:bg-slate-500 text-gray-800 dark:text-gray-100 font-bold py-3 px-4 rounded-lg transition">
-                  取消修改
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-6 py-2.5 rounded-md text-sm font-medium bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-700 transition-colors"
+                >
+                  取消編輯
                 </button>
               )}
             </div>
           </form>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden overflow-x-auto border border-transparent dark:border-slate-700 transition-colors">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
+        {/* 設備列表 */}
+        <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[860px]">
             <thead>
-              <tr className="bg-gray-800 dark:bg-slate-950 text-white border-b dark:border-slate-700">
-                <th className="p-4 whitespace-nowrap">圖片</th>
-                <th className="p-4 whitespace-nowrap w-1/4">設備名稱 & 說明</th>
-                <th className="p-4 whitespace-nowrap">庫存</th>
-                <th className="p-4 whitespace-nowrap">狀態</th>
-                <th className="p-4 whitespace-nowrap">操作</th>
+              <tr className="border-b border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-50/50 dark:bg-zinc-950/50">
+                <th className="px-5 py-3.5 w-24">圖片</th>
+                <th className="px-5 py-3.5">設備名稱與說明</th>
+                <th className="px-5 py-3.5 w-28">庫存</th>
+                <th className="px-5 py-3.5 w-32">狀態</th>
+                <th className="px-5 py-3.5 w-36 text-right">操作</th>
               </tr>
             </thead>
-            <tbody>
-              {equipments.map((eq) => (
-                <tr key={eq.id} className="border-b dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-750 transition-colors">
-                  <td className="p-4">
-                    {eq.image_url ? (
-                      <img src={eq.image_url} alt={eq.name} className="w-16 h-16 object-cover rounded shadow-sm border dark:border-slate-600" />
-                    ) : (
-                      <div className="w-16 h-16 bg-gray-200 dark:bg-slate-700 rounded flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">無圖</div>
-                    )}
-                  </td>
-                  <td className="p-4">
-                    <div className="font-bold text-gray-800 dark:text-gray-200">{eq.name}</div>
-                    {eq.description && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" title={eq.description}>
-                        {eq.description}
+            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-sm">
+              {equipments.map((eq) => {
+                const isAvailable =
+                  (eq.status === 'available' || eq.status === '可借用') && eq.quantity !== 0;
+
+                return (
+                  <tr
+                    key={eq.id}
+                    className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                  >
+                    <td className="px-5 py-4">
+                      {eq.image_url ? (
+                        <img
+                          src={eq.image_url}
+                          alt={eq.name}
+                          className="w-12 h-12 object-cover rounded-md border border-zinc-200 dark:border-zinc-800"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md flex items-center justify-center text-xs text-zinc-400">
+                          無圖
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                        {eq.name}
                       </div>
-                    )}
-                  </td>
-                  <td className={`p-4 font-bold text-lg ${eq.quantity === 0 ? 'text-red-500 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
-                    {eq.quantity ?? 0}
-                  </td>
-                  <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-                      (eq.status === 'available' || eq.status === '可借用') && eq.quantity !== 0 
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
-                        : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                    }`}>
-                      {eq.quantity === 0 || eq.status === 'unavailable' ? '不可借用' : '可借用'}
-                    </span>
-                  </td>
-                  <td className="p-4 flex gap-2">
-                    <button onClick={() => handleEdit(eq)} className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded font-bold text-sm whitespace-nowrap transition">
-                      編輯
-                    </button>
-                    <button onClick={() => handleDelete(eq.id, eq.name)} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded font-bold text-sm whitespace-nowrap transition">
-                      刪除
-                    </button>
+                      {eq.description && (
+                        <div
+                          className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2"
+                          title={eq.description}
+                        >
+                          {eq.description}
+                        </div>
+                      )}
+                    </td>
+                    <td
+                      className={`px-5 py-4 font-mono font-medium ${
+                        eq.quantity === 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-zinc-900 dark:text-zinc-100'
+                      }`}
+                    >
+                      {eq.quantity ?? 0}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 whitespace-nowrap">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isAvailable ? 'bg-emerald-500' : 'bg-zinc-400 dark:bg-zinc-600'
+                          }`}
+                        />
+                        {isAvailable ? '可借用' : '不可借用'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          onClick={() => handleEdit(eq)}
+                          className="px-3 py-1.5 rounded-md text-xs font-medium bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-700 transition-colors"
+                        >
+                          編輯
+                        </button>
+                        <button
+                          onClick={() => handleDelete(eq.id, eq.name)}
+                          className="px-3 py-1.5 rounded-md text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                        >
+                          刪除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {equipments.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-10 text-center text-sm text-zinc-400">
+                    目前沒有任何設備資料。
                   </td>
                 </tr>
-              ))}
-              {equipments.length === 0 && (
-                <tr><td colSpan={5} className="p-8 text-center text-gray-500 dark:text-gray-400 font-bold">目前沒有任何設備資料。</td></tr>
               )}
             </tbody>
           </table>

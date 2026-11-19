@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-// ⚠️ 請注意：根據你的專案結構，確認這裡的 supabase 路徑是否正確 (例如 ../../../utils/supabase 或 @/utils/supabase)
-import { supabase } from '../../../utils/supabase'; 
+import Link from 'next/link';
+import { supabase } from '../../../utils/supabase';
 
 export default function AdminSettings() {
   const [rules, setRules] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 1. 載入目前規則 (對應資料庫 system_settings 表格中 id=1 的 borrow_rules 欄位)
+  // 載入目前規則
   useEffect(() => {
     const fetchRules = async () => {
       const { data, error } = await supabase
@@ -16,64 +17,81 @@ export default function AdminSettings() {
         .select('borrow_rules')
         .eq('id', 1)
         .single();
-        
+
       if (data && !error) {
         setRules(data.borrow_rules);
       }
+      setIsLoading(false);
     };
     fetchRules();
   }, []);
 
-  // 2. 儲存修改後的規則
+  // 儲存修改後的規則
   const handleSave = async () => {
     setIsSaving(true);
     const { error } = await supabase
       .from('system_settings')
       .update({ borrow_rules: rules })
       .eq('id', 1);
-      
+
     if (!error) {
-      alert('✅ 借用規則已成功更新！前端表單將立即同步。');
+      alert('借用規則已更新，前台申請表單將立即同步。');
     } else {
-      alert(`❌ 更新失敗：${error.message}`);
+      alert(`更新失敗：${error.message}`);
     }
     setIsSaving(false);
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 lg:p-8">
-      <div className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
-          ⚙️ 系統通用設定
-        </h2>
-        <p className="text-gray-500 mb-6 text-sm">
-          在這裡修改的借用規則，儲存後會即時同步顯示在學生的前台借用申請表單中。
-        </p>
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 px-4 py-10 sm:px-8 transition-colors">
+      <div className="max-w-3xl mx-auto">
         
-        <div className="mb-6">
-          <label className="block text-gray-700 font-bold mb-3">
-            借用同意規則條款 (支援換行顯示)
-          </label>
-          <textarea 
-            value={rules}
-            onChange={(e) => setRules(e.target.value)}
-            className="w-full h-48 p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-800 leading-relaxed resize-y"
-            placeholder="請輸入欲顯示給學生看的借用規則..."
-          />
-        </div>
-        
-        <div className="flex justify-end">
-          <button 
-            onClick={handleSave} 
-            disabled={isSaving}
-            className={`font-bold py-3 px-8 rounded-lg transition-colors ${
-              isSaving 
-                ? 'bg-gray-400 cursor-not-allowed text-white' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'
-            }`}
+        {/* 頁首與返回連結 */}
+        <div className="mb-8 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+          <Link
+            href="/dashboard"
+            className="text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors inline-block mb-3"
           >
-            {isSaving ? '儲存中...' : '儲存設定'}
-          </button>
+            &larr; 返回審核後台
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight">系統與規則設定</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+            在此修改的借用規則，儲存後會即時同步顯示於前台申請表單中。
+          </p>
+        </div>
+
+        {/* 設定卡片 */}
+        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 sm:p-8">
+          <div className="mb-6">
+            <label
+              htmlFor="borrow-rules"
+              className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2"
+            >
+              借用同意規則條款（支援換行顯示）
+            </label>
+            <textarea
+              id="borrow-rules"
+              value={rules}
+              disabled={isLoading}
+              onChange={(e) => setRules(e.target.value)}
+              className="w-full h-56 p-4 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 leading-relaxed resize-y transition-colors placeholder-zinc-400 dark:placeholder-zinc-600 disabled:opacity-50"
+              placeholder={isLoading ? '載入規則中...' : '請輸入欲顯示給學生閱讀的借用規則...'}
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={handleSave}
+              disabled={isSaving || isLoading}
+              className={`px-6 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                isSaving || isLoading
+                  ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
+                  : 'bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900'
+              }`}
+            >
+              {isSaving ? '儲存中...' : '儲存設定'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
