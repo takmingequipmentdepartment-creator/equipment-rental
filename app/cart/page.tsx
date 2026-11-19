@@ -88,91 +88,91 @@ export default function CartPage() {
 
     const equipmentNames = items.map((item) => `${item.name} x${item.borrowQuantity}`).join(', ');
 
-    for (const item of items) {
-      const { data: isSuccess, error: rpcError } = await supabase.rpc('reserve_equipment', {
-        eq_id: item.id,
-        borrow_qty: item.borrowQuantity,
-      });
+    // 1. 單一原子性交易：同時完成「扣庫存 + 寫入訂單」，任一步失敗自動整批回滾
+    const { error: rpcError } = await supabase.rpc('submit_rental_order', {
+      p_items: items.map((item) => ({
+        id: item.id,
+        qty: item.borrowQuantity,
+      })),
+      p_department: department.trim(),
+      p_student_name: studentName.trim(),
+      p_phone: phone.trim(),
+      p_email: email.trim(),
+      p_activity_name: activityName.trim(),
+      p_borrow_date: borrowDate,
+      p_return_date: returnDateString,
+    });
 
-      if (rpcError || !isSuccess) {
-        alert(`【${item.name}】的庫存已被其他人搶先借走或庫存不足，請重新確認清單。`);
-        setIsSubmitting(false);
-        return;
+    if (rpcError) {
+      if (rpcError.message.includes('INSUFFICIENT_STOCK:')) {
+        const failedName = rpcError.message.split('INSUFFICIENT_STOCK:')[1];
+        alert(
+          `【${failedName}】的庫存已被其他人搶先借走或庫存不足。\n系統已自動取消本次所有扣庫存，請重新確認清單。`
+        );
+      } else {
+        alert('申請失敗，請稍後再試。錯誤代碼：' + rpcError.message);
       }
-    }
-
-    const { error } = await supabase.from('rental_requests').insert([
-      {
-        equipment_name: equipmentNames,
-        department: department.trim(),
-        student_name: studentName.trim(),
-        phone: phone.trim(),
-        email: email.trim(),
-        activity_name: activityName.trim(),
-        borrow_date: borrowDate,
-        return_date: returnDateString,
-        status: '審核中',
-      },
-    ]);
-
-    if (error) {
-      alert('申請失敗，請稍後再試。錯誤代碼：' + error.message);
       setIsSubmitting(false);
       return;
     }
 
-    await fetch('/api/notify-admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        studentName: studentName.trim(),
-        department: department.trim(),
-        equipmentName: equipmentNames,
-        email: email.trim(),
-        phone: phone.trim(),
-        activityName: activityName.trim(),
-        borrowDate: borrowDate,
-        returnDate: returnDateString,
-      }),
-    }).catch((err) => console.error('管理員通知信發送失敗:', err));
-
-    await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: email.trim(),
-        subject: `【德明學生會 設備部】借用申請送出成功通知`,
-        html: `
-          <div style="font-family: sans-serif; line-height: 1.6; color: #18181b; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="border-bottom: 1px solid #e4e4e7; padding-bottom: 12px; font-weight: 600;">借用申請送出成功</h2>
-            <p>親愛的 <strong>${studentName.trim()}</strong> 您好：</p>
-            <p>系統已收到您的設備借用申請，並已通知德明學生會 設備部管理員進行審核。</p>
-            <div style="background-color: #f4f4f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="margin-top: 0; font-size: 15px;">申請明細</h3>
-              <ul style="list-style: none; padding-left: 0; margin-bottom: 0;">
-                <li style="margin-bottom: 8px;"><strong>借用單位：</strong>${department.trim()}</li>
-                <li style="margin-bottom: 8px;"><strong>活動名稱：</strong>${activityName.trim()}</li>
-                <li style="margin-bottom: 8px;"><strong>預計借用日：</strong>${borrowDate}</li>
-                <li style="margin-bottom: 8px;"><strong>預計歸還日：</strong><span style="color: #dc2626; font-weight: 600;">${returnDateString}</span></li>
-                <li><strong>借用設備：</strong><br/>
-                  <div style="margin-top: 6px; padding-left: 10px; border-left: 2px solid #a1a1aa;">
-                    ${equipmentNames.split(', ').join('<br/>')}
-                  </div>
-                </li>
-              </ul>
+    // 2. 背景並行觸發管理員 Discord 通知與借用人確認信（不阻塞畫面，keepalive 確保跳轉仍能送完）
+    void Promise.allSettled([
+      fetch('/api/notify-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          studentName: studentName.trim(),
+          department: department.trim(),
+          equipmentName: equipmentNames,
+          email: email.trim(),
+          phone: phone.trim(),
+          activityName: activityName.trim(),
+          borrowDate: borrowDate,
+          returnDate: returnDateString,
+        }),
+      }).catch((err) => console.error('管理員通知發送失敗:', err)),
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          to: email.trim(),
+          subject: `【德明學生會 設備部】借用申請送出成功通知`,
+          html: `
+            <div style="font-family: sans-serif; line-height: 1.6; color: #18181b; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h2 style="border-bottom: 1px solid #e4e4e7; padding-bottom: 12px; font-weight: 600;">借用申請送出成功</h2>
+              <p>親愛的 <strong>${studentName.trim()}</strong> 您好：</p>
+              <p>系統已收到您的設備借用申請，並已通知德明學生會 設備部管理員進行審核。</p>
+              <div style="background-color: #f4f4f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0; font-size: 15px;">申請明細</h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 0;">
+                  <li style="margin-bottom: 8px;"><strong>借用單位：</strong>${department.trim()}</li>
+                  <li style="margin-bottom: 8px;"><strong>活動名稱：</strong>${activityName.trim()}</li>
+                  <li style="margin-bottom: 8px;"><strong>預計借用日：</strong>${borrowDate}</li>
+                  <li style="margin-bottom: 8px;"><strong>預計歸還日：</strong><span style="color: #dc2626; font-weight: 600;">${returnDateString}</span></li>
+                  <li><strong>借用設備：</strong><br/>
+                    <div style="margin-top: 6px; padding-left: 10px; border-left: 2px solid #a1a1aa;">
+                      ${equipmentNames.split(', ').join('<br/>')}
+                    </div>
+                  </li>
+                </ul>
+              </div>
+              <p>審核完成後，系統會再次發送 Email 通知您最終審核結果，請留意信箱。</p>
+              <p style="font-size: 12px; color: #71717a; margin-top: 30px; border-top: 1px solid #e4e4e7; padding-top: 15px;">
+                ※ 此為系統自動發送之信件，請勿直接回覆。<br/>
+                <strong>德明學生會 設備部</strong>
+              </p>
             </div>
-            <p>審核完成後，系統會再次發送 Email 通知您最終審核結果，請留意信箱。</p>
-            <p style="font-size: 12px; color: #71717a; margin-top: 30px; border-top: 1px solid #e4e4e7; padding-top: 15px;">
-              ※ 此為系統自動發送之信件，請勿直接回覆。<br/>
-              <strong>德明學生會 設備部</strong>
-            </p>
-          </div>
-        `,
-      }),
-    }).catch((err) => console.error('借用者通知信發送失敗:', err));
+          `,
+        }),
+      }).catch((err) => console.error('借用者通知信發送失敗:', err)),
+    ]);
 
+    // 3. 資料庫寫入成功立即回饋並導回首頁
     setIsSubmitting(false);
-    alert(`借用申請已成功送出！\n系統已發送確認信至您的信箱，應歸還日預設為：${returnDateString}`);
+    alert(`借用申請已成功送出！\n系統正在發送確認信至您的信箱，應歸還日預設為：${returnDateString}`);
     clearCart();
     router.push('/');
   };

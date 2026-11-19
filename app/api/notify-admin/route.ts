@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
+    const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+    if (!webhookUrl) {
+      console.error('缺少環境變數 DISCORD_WEBHOOK_URL');
+      return NextResponse.json(
+        { error: 'Discord Webhook 未設定' },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json();
     const {
       studentName,
       department,
@@ -14,70 +21,66 @@ export async function POST(request: Request) {
       activityName,
       borrowDate,
       returnDate,
-    } = await request.json();
+    } = body;
 
-    const formattedEquipment = equipmentName
-      ? equipmentName.split(', ').join('<br/>')
-      : '未填寫';
+    const formattedEquipments = equipmentName
+      ? equipmentName
+          .split(', ')
+          .map((item: string) => `• ${item}`)
+          .join('\n')
+      : '無';
 
-    const { data, error } = await resend.emails.send({
-      from: '德明學生會 設備部 <noreply@takming-rent.me>',
-      to: ['takmingequipmentdepartment@gmail.com'],
-      subject: `【德明學生會 設備部】新借用申請通知：${studentName}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; color: #18181b; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="border-bottom: 1px solid #e4e4e7; padding-bottom: 12px; font-weight: 600; font-size: 20px;">
-            收到新的設備借用申請
-          </h2>
-          <p style="font-size: 14px; color: #3f3f46;">
-            以下為新提交的借用申請明細，請盡快登入審核後台處理。
-          </p>
+    const discordPayload = {
+      username: '德明學生會 設備部',
+      embeds: [
+        {
+          title: '新設備借用申請通知',
+          description: '有新的借用申請已送出，請管理員前往後台審核。',
+          color: 0x18181b, // 極簡深灰（Zinc-900）
+          fields: [
+            { name: '借用單位', value: department || '未填寫', inline: true },
+            { name: '申請人', value: studentName || '未填寫', inline: true },
+            { name: '活動名稱', value: activityName || '未填寫', inline: false },
+            { name: '預計借用日', value: borrowDate || '未填寫', inline: true },
+            { name: '預計歸還日', value: returnDate || '未填寫', inline: true },
+            { name: '聯絡電話', value: phone || '未填寫', inline: true },
+            { name: '電子信箱', value: email || '未填寫', inline: true },
+            { name: '借用設備清單', value: formattedEquipments, inline: false },
+            {
+              name: '快速審核',
+              value: '[點此前往管理員後台](https://www.takming-rent.me/dashboard)',
+              inline: false,
+            },
+          ],
+          footer: {
+            text: '德明學生會 設備部借用系統',
+          },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
 
-          <div style="background-color: #f4f4f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <ul style="list-style: none; padding-left: 0; margin: 0; font-size: 14px;">
-              <li style="margin-bottom: 8px;"><strong>申請活動：</strong>${activityName || '未填寫'}</li>
-              <li style="margin-bottom: 8px;"><strong>申請單位：</strong>${department || '未填寫'}</li>
-              <li style="margin-bottom: 8px;"><strong>申請人：</strong>${studentName}</li>
-              <li style="margin-bottom: 8px;"><strong>聯絡信箱：</strong>${email}</li>
-              <li style="margin-bottom: 12px;"><strong>聯絡電話：</strong>${phone}</li>
-              <li style="margin-bottom: 12px;">
-                <strong>借用設備清單：</strong>
-                <div style="margin-top: 6px; padding-left: 10px; border-left: 2px solid #a1a1aa;">
-                  ${formattedEquipment}
-                </div>
-              </li>
-              <li style="border-top: 1px solid #e4e4e7; padding-top: 12px; margin-bottom: 8px;">
-                <strong>預計借用日：</strong>${borrowDate || '未設定'}
-              </li>
-              <li style="margin-bottom: 0; color: #dc2626;">
-                <strong>系統預計歸還日：</strong><strong>${returnDate || '未設定'}</strong>
-              </li>
-            </ul>
-          </div>
-
-          <div style="margin-top: 24px;">
-            <a
-              href="https://takming-rent.me/dashboard"
-              style="display: inline-block; background-color: #18181b; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: 500;"
-            >
-              前往審核後台
-            </a>
-          </div>
-
-          <p style="font-size: 12px; color: #71717a; margin-top: 30px; border-top: 1px solid #e4e4e7; padding-top: 15px;">
-            ※ 此為系統自動發送之通知信件，請勿直接回覆。<br />
-            <strong>德明學生會 設備部</strong>
-          </p>
-        </div>
-      `,
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(discordPayload),
     });
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Discord Webhook 發送失敗:', response.status, errorText);
+      return NextResponse.json(
+        { error: 'Discord 通知發送失敗' },
+        { status: 502 }
+      );
     }
 
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: '伺服器內部錯誤' }, { status: 500 });
+    console.error('處理管理員通知時發生錯誤:', error);
+    return NextResponse.json(
+      { error: '伺服器內部錯誤' },
+      { status: 500 }
+    );
   }
 }
