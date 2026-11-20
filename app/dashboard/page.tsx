@@ -92,6 +92,7 @@ export default function DashboardPage() {
 
     if (!confirm(`確定要將此申請單標記為「${newStatus}」嗎？\n(操作人將記錄為：${reviewerName})`)) return;
 
+    // 1. 只更新訂單狀態 (資料庫 Trigger 會自動在背後寫入 audit_logs，不用再手動 insert)
     const { error: updateError } = await supabase
       .from('rental_requests')
       .update({
@@ -105,14 +106,7 @@ export default function DashboardPage() {
       return;
     }
 
-    await supabase.from('audit_logs').insert([
-      {
-        request_id: request.id,
-        action: newStatus,
-        operator: reviewerName,
-      },
-    ]);
-
+    // 2. 如果是駁回或歸還，加回庫存
     if (newStatus === '駁回' || newStatus === '已歸還') {
       const equipmentArray = request.equipment_name.split(', ').map((name) => name.trim());
       for (const eqStr of equipmentArray) {
@@ -136,6 +130,7 @@ export default function DashboardPage() {
       }
     }
 
+    // 3. 寄送通知信給借用人
     try {
       const emailRes = await fetch('/api/send-email', {
         method: 'POST',
@@ -158,11 +153,13 @@ export default function DashboardPage() {
       console.error('網路錯誤:', err);
     }
 
+    // 4. 重新整理畫面資料
     fetchRequests();
 
     if (selectedRequest) {
       setSelectedRequest({ ...request, status: newStatus, reviewed_by: reviewerName });
-      fetchAuditLogs(request.id);
+      // 稍微延遲一下再抓取 log，確保資料庫 Trigger 已經寫入完成
+      setTimeout(() => fetchAuditLogs(request.id), 500);
     }
   };
 
@@ -185,7 +182,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 px-4 py-10 sm:px-8 transition-colors">
       <div className="max-w-6xl mx-auto">
-        
+
         {/* 頁首 */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-6 border-b border-zinc-200 dark:border-zinc-800 gap-4">
           <div>
