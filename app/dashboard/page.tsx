@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../utils/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import * as XLSX from 'xlsx'; // 引入匯出 Excel 套件
 
 interface RentalRequest {
   id: string;
@@ -163,6 +164,38 @@ export default function DashboardPage() {
     }
   };
 
+  // 匯出 Excel 處理函式
+  const handleExportExcel = () => {
+    if (requests.length === 0) {
+      alert('目前沒有資料可以匯出');
+      return;
+    }
+
+    // 整理並翻譯欄位，讓匯出的 Excel 標題是全中文
+    const exportData = requests.map(req => ({
+      '申請時間': new Date(req.created_at).toLocaleString('zh-TW'),
+      '活動名稱': req.activity_name || '未填寫',
+      '申請單位': req.department || '未填寫',
+      '申請人': req.student_name,
+      '聯絡電話': req.phone,
+      '電子信箱': req.email,
+      '借用設備': req.equipment_name,
+      '預計借用日': req.borrow_date || '未填寫',
+      '應歸還日期': req.return_date || '未填寫',
+      '狀態': req.status,
+      '處理的管理員': req.reviewed_by || '無'
+    }));
+
+    // 建立 Excel 活頁簿與工作表
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, '借用紀錄');
+
+    // 觸發下載 (檔名會自動加上今天的日期)
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(workbook, `設備部借用紀錄_${today}.xlsx`);
+  };
+
   // 極簡狀態小圓點
   const getStatusDot = (status: string) => {
     if (status === '審核中') return 'bg-amber-500';
@@ -189,12 +222,22 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-semibold tracking-tight">審核後台</h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">管理借用申請單與歸還紀錄</p>
           </div>
-          <Link
-            href="/dashboard/settings"
-            className="bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 px-4 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            系統與規則設定
-          </Link>
+
+          {/* 按鈕區塊：加入匯出 Excel 按鈕 */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportExcel}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              匯出 Excel
+            </button>
+            <Link
+              href="/dashboard/settings"
+              className="bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              系統與規則設定
+            </Link>
+          </div>
         </div>
 
         {/* 審核人員欄位 */}
